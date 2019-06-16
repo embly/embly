@@ -1,4 +1,5 @@
-use embly;
+extern crate embly;
+
 use std::io;
 use std::io::Read;
 use std::io::Write;

@@ -1,7 +1,12 @@
 [package]
 name = "embly"
-version = "0.1.0"
-authors = ["maxmcd <max.t.mcdonnell@gmail.com>"]
+version = "0.0.1"
+authors = ["maxmcd <m@xmcd.me>"]
 edition = "2018"
+description = "embly... wip"
+documentation = "https://docs.rs/embly/"
+homepage = "https://embly.run"
+repository = "https://github.com/maxmcd/embly"
+license = "MIT"
 
 [dependencies]

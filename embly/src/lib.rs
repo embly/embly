@@ -53,9 +53,20 @@ pub struct Function {}
 
 impl Function {}
 
+#[cfg(all(target_arch = "wasm32"))]
 extern "C" {
     fn _read(id: i32, payload: *const u8, payload_len: u32, ln: *const i32) -> u32;
     fn _write(id: i32, payload: *const u8, payload_len: u32, ln: *const i32) -> u32;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+unsafe fn _read(_id: i32, _payload: *const u8, _payload_len: u32, _ln: *const i32) -> u32 {
+    return 0;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+unsafe fn _write(_id: i32, _payload: *const u8, _payload_len: u32, _ln: *const i32) -> u32 {
+    return 0;
 }
 
 /// read something
