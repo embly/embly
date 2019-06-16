@@ -15,4 +15,4 @@ export WASM_LOCATION="../target/wasm32-wasi/release/embly.wasm"
 
 # ls -lah $WASM_LOCATION
 
-go run .
+go run . $@

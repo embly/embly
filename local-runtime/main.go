@@ -17,6 +17,7 @@ import "C"
 
 import (
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -26,15 +27,32 @@ import (
 	wasm "github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
+type config struct {
+	verbose bool
+	debug   bool
+}
+
 func main() {
+	flags()
 	if err := run(); err != nil {
 		log.Println(wasm.GetLastError())
 		log.Fatalf("%+v", err)
 	}
 }
 
+func flags() {
+	cfg := config{}
+	flag.BoolVar(&cfg.verbose, "v", false, "enable verbose logging")
+	flag.BoolVar(&cfg.debug, "d", false, "print stdout and stderr from wasm")
+	flag.Parse()
+	c = &cfg
+}
+
+var c *config
+
 // wasm.Instance
 func run() (err error) {
+
 	bytes, err := wasm.ReadBytes(os.Getenv("WASM_LOCATION"))
 	if err != nil {
 		return errors.Wrap(err, "reading the file failed")
@@ -109,7 +127,9 @@ func setInt32(addr int, v int32, mem *wasm.Memory) {
 func _read(context unsafe.Pointer, id int32, a int32, b int32, writtenPtr int32) int32 {
 	ctx := wasm.IntoInstanceContext(context)
 	_ = ctx
-	fmt.Println("_read", id, a, b, writtenPtr)
+	if c.debug {
+		fmt.Println("_read", id, a, b, writtenPtr)
+	}
 	return 0
 }
 
@@ -117,7 +137,9 @@ func _read(context unsafe.Pointer, id int32, a int32, b int32, writtenPtr int32)
 func _write(context unsafe.Pointer, id int32, buffPtr int32, buffLen int32, writtenPtr int32) int32 {
 	ctx := wasm.IntoInstanceContext(context)
 	buff := int(getUint32(int(buffPtr), ctx.Memory()))
-	fmt.Println("_write", id, buffPtr, buff, buffLen, writtenPtr)
+	if c.verbose {
+		fmt.Println("_write", id, buffPtr, buff, buffLen, writtenPtr)
+	}
 	os.Stdout.Write(ctx.Memory().Data()[int(buffPtr) : int(buffPtr)+int(buffLen)])
 	setInt32(int(writtenPtr), buffLen, ctx.Memory())
 	return 0
@@ -128,7 +150,9 @@ func fd_write(context unsafe.Pointer, fd int32, addr int32, ln int32, written in
 	ctx := wasm.IntoInstanceContext(context)
 	add := int(getUint32(int(addr), ctx.Memory()))
 	l := int(ln)
-	os.Stdout.Write(ctx.Memory().Data()[add : add+l])
+	if c.debug {
+		os.Stdout.Write(ctx.Memory().Data()[add : add+l])
+	}
 	setInt32(int(written), ln, ctx.Memory())
 	return 0
 }

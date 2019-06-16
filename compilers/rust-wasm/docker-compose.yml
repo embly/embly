@@ -1,0 +1,15 @@
+version: "3.3"
+
+services:
+  app:
+    image: maxmcd/embly-compile-rust-wasm
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../../embly/:/opt/embly/
+  img:
+    image: internal/embly-compile-rust-wasm-img-for-cache
+    build:
+      context: .
+      dockerfile: img.Dockerfile
