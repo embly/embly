@@ -1,9 +1,10 @@
 [package]
 name = "embly"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["maxmcd <m@xmcd.me>"]
 edition = "2018"
-description = "embly... wip"
+description = "Library for running functions on embly"
+readme = "readme.md"
 documentation = "https://docs.rs/embly/"
 homepage = "https://embly.run"
 repository = "https://github.com/maxmcd/embly"
