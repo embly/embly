@@ -1,0 +1,15 @@
+version: "3.3"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../:/opt/
+      - control:/go/pkg/
+      - homecache:/root/.cache
+
+volumes:
+  control: {}
+  homecache: {}

@@ -1,0 +1,18 @@
+syntax = "proto3";
+package rustcompile;
+
+service RustCompile {
+  rpc StartBuild(Code) returns (stream Result) {}
+}
+
+message Code { repeated File files = 1; }
+
+message File {
+  string path = 1;
+  bytes body = 2;
+}
+
+message Result {
+  string log = 1;
+  bytes binary = 2;
+}
