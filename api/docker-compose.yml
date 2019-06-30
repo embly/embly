@@ -1,18 +1,16 @@
 version: "3.3"
 
 services:
-  app:
+  api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: ./cmd/api/Dockerfile
+    ports:
+      - "3000:3000"
+    restart: always
     depends_on:
       - postgres
       - redis
-    volumes:
-      - ../:/go/src/github.com/maxmcd/embly/
-      - control:/go/pkg/
-      - homecache:/root/.cache
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DB_DISABLE_SSL=truthy
       - DB_HOST=postgres
@@ -44,7 +42,5 @@ services:
       # - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
 
 volumes:
-  control: {}
-  homecache: {}
-  postgres: {}
   redis: {}
+  postgres: {}

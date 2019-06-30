@@ -15,9 +15,10 @@ func main() {
 	logrus.SetReportCaller(true)
 	config.Register(
 		"DB_HOST",
-		"DB_NAME",
+		"DB_DATABASE",
 		"DB_PASSWORD",
-		"DB_USER",
+		"DB_PORT",
+		"DB_USERNAME",
 		"REDIS_HOST",
 	)
 
@@ -39,4 +40,5 @@ func main() {
 	})
 	build.ApplyRoutes(dbclient, router.Group("/api/"))
 
+	router.Run(":3000")
 }

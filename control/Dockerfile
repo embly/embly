@@ -19,17 +19,23 @@ COPY --from=docker /usr/local/bin/docker /usr/local/bin/docker
 
 WORKDIR /go/src/github.com/maxmcd/embly/
 
+RUN apk add git libc-dev gcc
+
+RUN go get github.com/codegangsta/gin \
+    && go get bitbucket.org/liamstask/goose/cmd/goose \
+    && go get github.com/volatiletech/sqlboiler \
+    && go get github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql
+
 RUN apk add \
-    git \
     bash \
     curl \
     wget \
     vim \
     tree \
-    gcc \
-    libc-dev \
     `# end`
 
 COPY .bashrc /root/.bashrc
+
+ENV GO111MODULE=on
 
 CMD bash

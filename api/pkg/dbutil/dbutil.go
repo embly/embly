@@ -7,7 +7,7 @@ import (
 
 	"embly/api/pkg/config"
 
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // for the db
 	"github.com/pkg/errors"
 )
 

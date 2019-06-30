@@ -3,7 +3,7 @@
 alias l="tree --dirsfirst -ChFLa 1"
 alias d="du -chd 1 | sort -h"
 
-export PS1="\[\033[1;31m\]embly \[\033[1;37m\]\$(date +%M%S) \u: \w \n$ "
+export PS1="\[\033[1;31m\]embly \[\e[0m\]\$(date +%M%S) \u: \w \n$ "
 
 export HISTFILESIZE=72000
 export HISTSIZE=$HISTFILESIZE

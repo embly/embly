@@ -53,6 +53,7 @@ func buildHandler(ctx context.Context, db *sql.DB, c *gin.Context) error {
 	}
 
 	fmt.Println(pf.toCode())
+
 	c.JSON(200, gin.H{"msg": "Hello"})
 
 	return nil
