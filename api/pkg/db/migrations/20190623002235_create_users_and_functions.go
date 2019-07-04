@@ -15,13 +15,13 @@ func Up_20190623002235(txn *sql.Tx) {
 			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)`,
 		`CREATE TABLE functions (
-			hash UUID NOT NULL PRIMARY KEY,
+			id UUID NOT NULL PRIMARY KEY,
 			name VARCHAR NOT NULL,
-			tag VARCHAR ,
+			tag VARCHAR,
 			user_id INT NOT NULL,
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			FOREIGN KEY (user_id) REFERENCES users(id) 
+			FOREIGN KEY (user_id) REFERENCES users(id)
 		)`,
 	)
 }

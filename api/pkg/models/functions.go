@@ -24,7 +24,7 @@ import (
 
 // Function is an object representing the database table.
 type Function struct {
-	Hash      string      `boil:"hash" json:"hash" toml:"hash" yaml:"hash"`
+	ID        string      `boil:"id" json:"id" toml:"id" yaml:"id"`
 	Name      string      `boil:"name" json:"name" toml:"name" yaml:"name"`
 	Tag       null.String `boil:"tag" json:"tag,omitempty" toml:"tag" yaml:"tag,omitempty"`
 	UserID    int         `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
@@ -36,14 +36,14 @@ type Function struct {
 }
 
 var FunctionColumns = struct {
-	Hash      string
+	ID        string
 	Name      string
 	Tag       string
 	UserID    string
 	CreatedAt string
 	UpdatedAt string
 }{
-	Hash:      "hash",
+	ID:        "id",
 	Name:      "name",
 	Tag:       "tag",
 	UserID:    "user_id",
@@ -116,14 +116,14 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 }
 
 var FunctionWhere = struct {
-	Hash      whereHelperstring
+	ID        whereHelperstring
 	Name      whereHelperstring
 	Tag       whereHelpernull_String
 	UserID    whereHelperint
 	CreatedAt whereHelpertime_Time
 	UpdatedAt whereHelpertime_Time
 }{
-	Hash:      whereHelperstring{field: "\"functions\".\"hash\""},
+	ID:        whereHelperstring{field: "\"functions\".\"id\""},
 	Name:      whereHelperstring{field: "\"functions\".\"name\""},
 	Tag:       whereHelpernull_String{field: "\"functions\".\"tag\""},
 	UserID:    whereHelperint{field: "\"functions\".\"user_id\""},
@@ -152,10 +152,10 @@ func (*functionR) NewStruct() *functionR {
 type functionL struct{}
 
 var (
-	functionAllColumns            = []string{"hash", "name", "tag", "user_id", "created_at", "updated_at"}
-	functionColumnsWithoutDefault = []string{"hash", "name", "tag", "user_id"}
+	functionAllColumns            = []string{"id", "name", "tag", "user_id", "created_at", "updated_at"}
+	functionColumnsWithoutDefault = []string{"id", "name", "tag", "user_id"}
 	functionColumnsWithDefault    = []string{"created_at", "updated_at"}
-	functionPrimaryKeyColumns     = []string{"hash"}
+	functionPrimaryKeyColumns     = []string{"id"}
 )
 
 type (
@@ -564,7 +564,7 @@ func (o *Function) SetUser(ctx context.Context, exec boil.ContextExecutor, inser
 		strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
 		strmangle.WhereClause("\"", "\"", 2, functionPrimaryKeyColumns),
 	)
-	values := []interface{}{related.ID, o.Hash}
+	values := []interface{}{related.ID, o.ID}
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, updateQuery)
@@ -603,7 +603,7 @@ func Functions(mods ...qm.QueryMod) functionQuery {
 
 // FindFunction retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindFunction(ctx context.Context, exec boil.ContextExecutor, hash string, selectCols ...string) (*Function, error) {
+func FindFunction(ctx context.Context, exec boil.ContextExecutor, iD string, selectCols ...string) (*Function, error) {
 	functionObj := &Function{}
 
 	sel := "*"
@@ -611,10 +611,10 @@ func FindFunction(ctx context.Context, exec boil.ContextExecutor, hash string, s
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"functions\" where \"hash\"=$1", sel,
+		"select %s from \"functions\" where \"id\"=$1", sel,
 	)
 
-	q := queries.Raw(query, hash)
+	q := queries.Raw(query, iD)
 
 	err := q.Bind(ctx, exec, functionObj)
 	if err != nil {
@@ -984,7 +984,7 @@ func (o *Function) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), functionPrimaryKeyMapping)
-	sql := "DELETE FROM \"functions\" WHERE \"hash\"=$1"
+	sql := "DELETE FROM \"functions\" WHERE \"id\"=$1"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -1081,7 +1081,7 @@ func (o FunctionSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *Function) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindFunction(ctx, exec, o.Hash)
+	ret, err := FindFunction(ctx, exec, o.ID)
 	if err != nil {
 		return err
 	}
@@ -1120,16 +1120,16 @@ func (o *FunctionSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor
 }
 
 // FunctionExists checks if the Function row exists.
-func FunctionExists(ctx context.Context, exec boil.ContextExecutor, hash string) (bool, error) {
+func FunctionExists(ctx context.Context, exec boil.ContextExecutor, iD string) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"functions\" where \"hash\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"functions\" where \"id\"=$1 limit 1)"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
-		fmt.Fprintln(boil.DebugWriter, hash)
+		fmt.Fprintln(boil.DebugWriter, iD)
 	}
 
-	row := exec.QueryRowContext(ctx, sql, hash)
+	row := exec.QueryRowContext(ctx, sql, iD)
 
 	err := row.Scan(&exists)
 	if err != nil {

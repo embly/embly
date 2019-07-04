@@ -149,7 +149,7 @@ func testFunctionsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := FunctionExists(ctx, tx, o.Hash)
+	e, err := FunctionExists(ctx, tx, o.ID)
 	if err != nil {
 		t.Errorf("Unable to check if Function exists: %s", err)
 	}
@@ -175,7 +175,7 @@ func testFunctionsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	functionFound, err := FindFunction(ctx, tx, o.Hash)
+	functionFound, err := FindFunction(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -677,7 +677,7 @@ func testFunctionsSelect(t *testing.T) {
 }
 
 var (
-	functionDBTypes = map[string]string{`Hash`: `uuid`, `Name`: `character varying`, `Tag`: `character varying`, `UserID`: `integer`, `CreatedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`}
+	functionDBTypes = map[string]string{`ID`: `uuid`, `Name`: `character varying`, `Tag`: `character varying`, `UserID`: `integer`, `CreatedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`}
 	_               = bytes.MinRead
 )
 

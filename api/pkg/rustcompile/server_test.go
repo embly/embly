@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	
+
 	rc "embly/api/pkg/rustcompile/proto"
 	"google.golang.org/grpc"
 )
@@ -18,9 +18,8 @@ func TestStart(t *testing.T) {
 		t.Error(err)
 	}
 	defer conn.Close()
-	
+
 	client := rc.NewRustCompileClient(conn)
-	
 	buildClient, err := client.StartBuild(context.Background(), &rc.Code{})
 	if err != nil {
 		t.Error(err)
@@ -32,7 +31,7 @@ func TestStart(t *testing.T) {
 	}
 	fmt.Println(r)
 
-	
+
 	r, err = buildClient.Recv()
 	if err != nil {
 		t.Error(err)

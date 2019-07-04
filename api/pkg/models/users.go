@@ -494,7 +494,7 @@ func (o *User) AddFunctions(ctx context.Context, exec boil.ContextExecutor, inse
 				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
 				strmangle.WhereClause("\"", "\"", 2, functionPrimaryKeyColumns),
 			)
-			values := []interface{}{o.ID, rel.Hash}
+			values := []interface{}{o.ID, rel.ID}
 
 			if boil.DebugMode {
 				fmt.Fprintln(boil.DebugWriter, updateQuery)

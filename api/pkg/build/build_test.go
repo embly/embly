@@ -2,9 +2,11 @@ package build
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"embly/api/pkg/config"
 	"embly/api/pkg/dbutil"
+	"embly/api/pkg/routing"
 	"embly/api/pkg/tester"
 	"log"
 	"mime/multipart"
@@ -35,10 +37,19 @@ func init() {
 
 func handler() http.Handler {
 	r := gin.Default()
-	g := r.Group("/")
-	ApplyRoutes(db, g)
+	r.POST("/", routing.ErrorWrapHandler(db, parseFormAndGenFilesTestHandler))
 	return r
 }
+
+func parseFormAndGenFilesTestHandler(ctx context.Context, db *sql.DB, c *gin.Context) (err error) {
+	_, err = parseFormAndGenFiles(c)
+	if err != nil {
+		return err
+	}
+	c.JSON(200, gin.H{"msg": "ok"})
+	return nil
+}
+
 func TestBuildWithFiles(te *testing.T) {
 	t := tester.New(te)
 	s := httptest.NewServer(handler())
@@ -52,9 +63,8 @@ func TestBuildWithFiles(te *testing.T) {
 	part, err = writer.CreateFormFile("foo", "./Cargo.toml")
 	t.AssertNoError(err)
 	part.Write([]byte(`[dependencies]
-	embly="*"
+embly="*"
 	`))
-
 
 	t.AssertNoError(writer.Close())
 	req, err := http.NewRequest("POST", s.URL, body)

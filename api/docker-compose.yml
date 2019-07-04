@@ -20,6 +20,10 @@ services:
       - DB_USERNAME=postgres
       - ENV=dev
       - REDIS_HOST=redis:6379
+  rustcompile:
+    build:
+      context: ./
+      dockerfile: ./cmd/rustcompile/Dockerfile
   redis:
     image: redis:5.0.4
     # https://redis.io/topics/persistence

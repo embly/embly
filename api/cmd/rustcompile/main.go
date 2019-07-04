@@ -1,9 +1,9 @@
 package main
 
 import (
-	"embly/api/pkg/rustcompile/server"
+	"embly/api/pkg/rustcompile"
 )
 
 func main() {
-	server.Start(9000)
+	rustcompile.Start(9000)
 }

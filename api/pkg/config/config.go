@@ -1,16 +1,17 @@
 package config
 
 import (
+	"flag"
 	"log"
 	"os"
 )
 
-// TODO: ignore during tests?
-// if flag.Lookup("test.v") == nil {
-// 	fmt.Println("normal run")
-// } else {
-// 	fmt.Println("run under go test")
-// }
+var testing bool
+func init() {
+	if flag.Lookup("test.v") != nil {
+		testing = true
+	}
+}
 
 var config = map[string]string{}
 
@@ -18,7 +19,7 @@ var config = map[string]string{}
 func Register(keys ...string) {
 	for _, key := range keys {
 		val := os.Getenv(key)
-		if val == "" {
+		if val == "" && !testing {
 			log.Fatalf("Config value %s is not set", key)
 		}
 		config[key] = val
@@ -28,7 +29,7 @@ func Register(keys ...string) {
 // Get gets a config value
 func Get(key string) (val string) {
 	var ok bool
-	if val, ok = config[key]; ok == false {
+	if val, ok = config[key]; ok == false && !testing {
 		log.Fatalf("Config value %s was never initialized", key)
 	}
 	return

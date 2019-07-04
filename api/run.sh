@@ -26,6 +26,9 @@ do
     cd ./cmd/api/
     go build
     cd ../../
+    cd ./cmd/rustcompile/
+    go build
+    cd ../../
     docker-compose down
     docker-compose build
     docker-compose up -d

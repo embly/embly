@@ -1,0 +1,10 @@
+@import "~normalize.css";
+@import "~@blueprintjs/core/lib/css/blueprint.css";
+@import "~@blueprintjs/icons/lib/css/blueprint-icons.css";
+
+.container {
+  max-width: 900px;
+  padding: 0 30px 0 30px;
+  margin: 0px auto;
+  margin-top: 50px;
+}
