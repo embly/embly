@@ -18,12 +18,12 @@ type Context struct {
 }
 
 // ErrorWrapHandler ...
-func ErrorWrapHandler(db *sql.DB,
-	handler func(context.Context, *sql.DB,
+func ErrorWrapHandler(rc *Context,
+	handler func(context.Context, *Context,
 		*gin.Context) error) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		ctx := context.Background()
-		err := handler(ctx, db, c)
+		err := handler(ctx, rc, c)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		}

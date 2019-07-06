@@ -2,8 +2,8 @@ package build
 
 import (
 	"context"
-	"database/sql"
 	"io/ioutil"
+	"mime/multipart"
 
 	"embly/api/pkg/models"
 	"embly/api/pkg/routing"
@@ -12,34 +12,44 @@ import (
 
 	"github.com/getlantern/uuid"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/boil"
 )
 
 // ApplyRoutes will apply calendar routes
-func ApplyRoutes(db *sql.DB, r *gin.RouterGroup) {
-	// boil.DebugMode = true
-	r.GET("/", routing.ErrorWrapHandler(db, indexHandler))
-	r.POST("/", routing.ErrorWrapHandler(db, buildHandler))
+func ApplyRoutes(rc *routing.Context, r *gin.RouterGroup) {
+	boil.DebugMode = true
+	r.GET("/", routing.ErrorWrapHandler(rc, indexHandler))
+	r.POST("/", routing.ErrorWrapHandler(rc, buildHandler))
 }
 
-func indexHandler(ctx context.Context, db *sql.DB, c *gin.Context) error {
+func indexHandler(ctx context.Context, rc *routing.Context, c *gin.Context) error {
 	c.JSON(200, gin.H{"msg": "Hello"})
 	return nil
 }
 
-func parseFormAndGenFiles(c *gin.Context) (files []*rc.File, err error) {
+func parseFormAndGenFiles(c *gin.Context) (name string, files []*rc.File, err error) {
 	if err = c.Request.ParseMultipartForm(10); err != nil {
+		return
+	}
+	for key, values := range c.Request.MultipartForm.Value {
+		if key == "name" {
+			name = values[len(values)-1]
+		}
+	}
+	if name == "" {
+		err = errors.New("Build upload must have a name")
 		return
 	}
 	for _, mpfs := range c.Request.MultipartForm.File {
 		for _, mpf := range mpfs {
-			f, err := mpf.Open()
-			if err != nil {
-				return files, err
+			var f multipart.File
+			if f, err = mpf.Open(); err != nil {
+				return
 			}
-			b, err := ioutil.ReadAll(f)
-			if err != nil {
-				return files, err
+			var b []byte
+			if b, err = ioutil.ReadAll(f); err != nil {
+				return
 			}
 			files = append(files, &rc.File{
 				Path: mpf.Filename,
@@ -51,9 +61,10 @@ func parseFormAndGenFiles(c *gin.Context) (files []*rc.File, err error) {
 	return
 }
 
-func buildHandler(ctx context.Context, db *sql.DB, c *gin.Context) error {
-	files, err := parseFormAndGenFiles(c)
+func buildHandler(ctx context.Context, rc *routing.Context, c *gin.Context) error {
+	name, files, err := parseFormAndGenFiles(c)
 	if err != nil {
+		// TODO: 429 err
 		return err
 	}
 	pf := newProjectFiles(files)
@@ -65,9 +76,12 @@ func buildHandler(ctx context.Context, db *sql.DB, c *gin.Context) error {
 		return err
 	}
 	fun := models.Function{
-		ID: id.String(),
+		ID:   id.String(),
+		Name: name,
 	}
-	fun.Insert(ctx, db, boil.Infer())
+	if err = fun.Insert(ctx, rc.DB, boil.Infer()); err != nil {
+		return err
+	}
 	// pf.toCode()
 
 	c.JSON(200, gin.H{"function": gin.H{"id": fun.ID}})

@@ -1,16 +1,39 @@
 package tester
 
 import (
+	"database/sql"
+	"embly/api/pkg/routing"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 )
 
+// Tester is a wrapper around testing.T
 type Tester struct {
 	*testing.T
+}
+
+func (t *Tester) NewRoutingContext() (rc *routing.Context, mock sqlmock.Sqlmock) {
+	var db *sql.DB
+	db, mock = t.NewMockDB()
+	rc = &routing.Context{
+		DB:       db,
+		RCClient: nil, //TODO
+	}
+	return
+}
+
+func (t *Tester) NewMockDB() (db *sql.DB, mock sqlmock.Sqlmock) {
+	var err error
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	return
 }
 
 func New(t *testing.T) Tester {

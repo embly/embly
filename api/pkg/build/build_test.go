@@ -2,8 +2,8 @@ package build
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
+	"database/sql/driver"
 	"embly/api/pkg/config"
 	"embly/api/pkg/dbutil"
 	"embly/api/pkg/routing"
@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,27 +36,27 @@ func init() {
 	}
 }
 
-func handler() http.Handler {
+func handler(rc *routing.Context) http.Handler {
 	r := gin.Default()
-	r.POST("/", routing.ErrorWrapHandler(db, parseFormAndGenFilesTestHandler))
+	r.POST("/", routing.ErrorWrapHandler(rc, buildHandler))
 	return r
 }
 
-func parseFormAndGenFilesTestHandler(ctx context.Context, db *sql.DB, c *gin.Context) (err error) {
-	_, err = parseFormAndGenFiles(c)
-	if err != nil {
-		return err
-	}
-	c.JSON(200, gin.H{"msg": "ok"})
-	return nil
+type AnyValue struct{}
+
+// Match satisfies sqlmock.Argument interface
+func (a AnyValue) Match(v driver.Value) bool {
+	return true
 }
 
 func TestBuildWithFiles(te *testing.T) {
 	t := tester.New(te)
-	s := httptest.NewServer(handler())
-
+	rc, mock := t.NewRoutingContext()
+	s := httptest.NewServer(handler(rc))
+	_ = mock
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
+	writer.WriteField("name", "foo")
 	part, err := writer.CreateFormFile("whatever", "./src/main.rs")
 	t.AssertNoError(err)
 	part.Write([]byte(`fn main(){ println!("hi") }`))
@@ -71,6 +72,18 @@ embly="*"
 	t.AssertNoError(err)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	client := &http.Client{}
+
+	mock.ExpectExec(`INSERT INTO "functions"`).WithArgs(
+		AnyValue{}, "foo",
+		AnyValue{}, AnyValue{},
+		AnyValue{}, AnyValue{},
+	).WillReturnResult(sqlmock.NewResult(1, 1))
+
 	t.AssertCode(http.StatusOK)(client.Do(req))
+
+	// we make sure that all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
 
 }
