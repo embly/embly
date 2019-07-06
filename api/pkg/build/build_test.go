@@ -5,10 +5,15 @@ import (
 	"database/sql/driver"
 	"embly/api/pkg/routing"
 	"embly/api/pkg/tester"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	rc "embly/api/pkg/rustcompile/proto"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
@@ -16,7 +21,7 @@ import (
 
 func handler(rc *routing.Context) http.Handler {
 	r := gin.Default()
-	r.POST("/", routing.ErrorWrapHandler(rc, buildHandler))
+	ApplyRoutes(rc, r.Group("/"))
 	return r
 }
 
@@ -29,8 +34,8 @@ func (a AnyValue) Match(v driver.Value) bool {
 
 func TestBuildWithFiles(te *testing.T) {
 	t := tester.New(te)
-	rc, mock := t.NewRoutingContext()
-	s := httptest.NewServer(handler(rc))
+	roc, mock, rctc := t.NewRoutingContext()
+	s := httptest.NewServer(handler(roc))
 	_ = mock
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -57,11 +62,29 @@ embly="*"
 		AnyValue{}, AnyValue{},
 	).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	t.AssertCode(http.StatusOK)(client.Do(req))
+	rctc.ResultChan <- &rc.Result{
+		Log: "hi",
+	}
+	rctc.ResultChan <- &rc.Result{
+		Binary: []byte("hi"),
+	}
+
+	resp, _ := t.AssertCode(http.StatusOK)(client.Do(req))
 
 	// we make sure that all expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
+	b, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(b))
+	var br map[string]buildResp
+	json.Unmarshal(b, &br)
+	bb, _ := roc.RedisClient.GetB(br["function"].ID)
+	t.Assert().Equal(bb, []byte("hi"))
+}
+
+type buildResp struct {
+	ID   string
+	Name string
 }

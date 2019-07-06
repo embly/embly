@@ -2,9 +2,9 @@ package build
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"mime/multipart"
+	"strings"
 
 	"embly/api/pkg/models"
 	"embly/api/pkg/routing"
@@ -62,7 +62,7 @@ func parseFormAndGenFiles(c *gin.Context) (name string, files []*rc.File, err er
 	return
 }
 
-func buildHandler(ctx context.Context, rc *routing.Context, c *gin.Context) error {
+func buildHandler(ctx context.Context, roc *routing.Context, c *gin.Context) (err error) {
 	name, files, err := parseFormAndGenFiles(c)
 	if err != nil {
 		// TODO: 429 err
@@ -80,12 +80,35 @@ func buildHandler(ctx context.Context, rc *routing.Context, c *gin.Context) erro
 		ID:   id.String(),
 		Name: name,
 	}
-	if err = fun.Insert(ctx, rc.DB, boil.Infer()); err != nil {
+	if err = fun.Insert(ctx, roc.DB, boil.Infer()); err != nil {
 		return err
 	}
-	fmt.Println(pf.toCode())
 
-	c.JSON(200, gin.H{"function": gin.H{"id": fun.ID}})
+	sbClient, err := roc.RCClient.StartBuild(ctx, pf.toCode())
+	if err != nil {
+		return err
+	}
+	var logOutput strings.Builder
+	var result *rc.Result
+	var resultingBinary []byte
+	for {
+		if result, err = sbClient.Recv(); err != nil {
+			return err
+		}
+		if result.Log != "" {
+			logOutput.WriteString(result.Log)
+		}
+		if len(result.Binary) != 0 {
+			resultingBinary = result.Binary
+			break
+		}
+	}
+
+	if err = roc.RedisClient.SetB(fun.ID, resultingBinary); err != nil {
+		return
+	}
+
+	c.JSON(200, gin.H{"function": gin.H{"id": fun.ID, "name": fun.Name}})
 
 	return nil
 }

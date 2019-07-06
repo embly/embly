@@ -7,6 +7,7 @@ import (
 	"database/sql"
 
 	rc "embly/api/pkg/rustcompile/proto"
+	"embly/api/pkg/cache"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +16,7 @@ import (
 type Context struct {
 	DB       *sql.DB
 	RCClient rc.RustCompileClient
+	RedisClient cache.Client
 }
 
 // ErrorWrapHandler ...

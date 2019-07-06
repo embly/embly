@@ -54,7 +54,8 @@ func (pf *projectFiles) validateAndClean() (err error) {
 	return nil
 }
 
-func (pf *projectFiles) toCode() (code rc.Code) {
+func (pf *projectFiles) toCode() (code *rc.Code) {
+	code = &rc.Code{}
 	for _, f := range pf.files {
 		code.Files = append(code.Files, f)
 	}

@@ -12,7 +12,6 @@ import (
 
 func TestStart(t *testing.T) {
 	addr := Start(0)
-
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		t.Error(err)

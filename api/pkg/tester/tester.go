@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	rc "embly/api/pkg/rustcompile/proto"
+	"embly/api/pkg/cache"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
@@ -21,22 +22,61 @@ type Tester struct {
 	*testing.T
 }
 
-type RustCompileTestClient struct{}
-
-func (c *RustCompileTestClient) StartBuild(ctx context.Context, in rc.Code, opts ...grpc.CallOption) (sbc rc.RustCompile_StartBuildClient, err error) {
-	return
+// RustCompileTestClient is a test client for RustCompileClient, it provoides a channel to assert on re.Code values
+type RustCompileTestClient struct {
+	CodeChan   chan (*rc.Code)
+	ResultChan chan (*rc.Result)
+	ErrChan    chan (error)
 }
-func (t *Tester) NewRoutingContext() (rc *routing.Context, mock sqlmock.Sqlmock) {
-	var db *sql.DB
-	db, mock = t.NewMockDB()
-	rctc := RustCompileTestClient{}
-	rc = &routing.Context{
-		DB:       db,
-		RCClient: &rctc,
+
+// StartBuild just takes the code value and returns it on a channel
+func (c *RustCompileTestClient) StartBuild(ctx context.Context, in *rc.Code, opts ...grpc.CallOption) (sbc rc.RustCompile_StartBuildClient, err error) {
+	c.CodeChan <- in
+	rctsbc := rustCompileTestStartBuildClient{
+		ResultChan: c.ResultChan,
+		ErrChan:    c.ErrChan,
+	}
+	return &rctsbc, err
+}
+
+type rustCompileTestStartBuildClient struct {
+	grpc.ClientStream
+	ResultChan chan (*rc.Result)
+	ErrChan    chan (error)
+}
+
+func (x *rustCompileTestStartBuildClient) Recv() (r *rc.Result, err error) {
+	select {
+	case r = <-x.ResultChan:
+	case err = <-x.ErrChan:
+	default:
 	}
 	return
 }
 
+// newRustCompileTestClient creates a new RustCompileTestClient as an rc.RustCompileClient interface
+func newRustCompileTestClient() RustCompileTestClient {
+	return RustCompileTestClient{
+		CodeChan:   make(chan *rc.Code, 100),
+		ResultChan: make(chan *rc.Result, 100),
+		ErrChan:    make(chan error, 100),
+	}
+}
+
+// NewRoutingContext creates a routing context for tests. it has a mocked db
+func (t *Tester) NewRoutingContext() (rc *routing.Context, mock sqlmock.Sqlmock, rctc RustCompileTestClient) {
+	var db *sql.DB
+	db, mock = t.NewMockDB()
+	rctc = newRustCompileTestClient()
+	rc = &routing.Context{
+		DB:          db,
+		RCClient:    &rctc,
+		RedisClient: cache.NewTestClient(),
+	}
+	return
+}
+
+// NewMockDB creates a new sqlmock db and mock object
 func (t *Tester) NewMockDB() (db *sql.DB, mock sqlmock.Sqlmock) {
 	var err error
 	db, mock, err = sqlmock.New()
@@ -46,6 +86,7 @@ func (t *Tester) NewMockDB() (db *sql.DB, mock sqlmock.Sqlmock) {
 	return
 }
 
+// New wraps a *testing.T
 func New(t *testing.T) Tester {
 	return Tester{t}
 }
