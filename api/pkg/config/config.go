@@ -4,9 +4,12 @@ import (
 	"flag"
 	"log"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 var testing bool
+
 func init() {
 	if flag.Lookup("test.v") != nil {
 		testing = true
@@ -30,7 +33,8 @@ func Register(keys ...string) {
 func Get(key string) (val string) {
 	var ok bool
 	if val, ok = config[key]; ok == false && !testing {
-		log.Fatalf("Config value %s was never initialized", key)
+		err := errors.New("config value was never initialized: " + key)
+		log.Fatalf("%+v", err)
 	}
 	return
 }

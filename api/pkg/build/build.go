@@ -30,7 +30,8 @@ func indexHandler(ctx context.Context, rc *routing.Context, c *gin.Context) erro
 }
 
 func parseFormAndGenFiles(c *gin.Context) (name string, files []*rc.File, err error) {
-	if err = c.Request.ParseMultipartForm(10); err != nil {
+	if err = c.Request.ParseMultipartForm(4 * 1000 * 1000); err != nil {
+		err = errors.Wrap(err, "error parsing multipart form")
 		return
 	}
 	for key, values := range c.Request.MultipartForm.Value {
@@ -46,10 +47,12 @@ func parseFormAndGenFiles(c *gin.Context) (name string, files []*rc.File, err er
 		for _, mpf := range mpfs {
 			var f multipart.File
 			if f, err = mpf.Open(); err != nil {
+				err = errors.Wrap(err, "error opening mpf file "+mpf.Filename)
 				return
 			}
 			var b []byte
 			if b, err = ioutil.ReadAll(f); err != nil {
+				err = errors.Wrap(err, "error reading all of file "+mpf.Filename)
 				return
 			}
 			files = append(files, &rc.File{
@@ -69,12 +72,14 @@ func buildHandler(ctx context.Context, roc *routing.Context, c *gin.Context) (er
 		return err
 	}
 	pf := newProjectFiles(files)
-	if err := pf.validateAndClean(); err != nil {
-		return err
+	if err = pf.validateAndClean(); err != nil {
+		err = errors.Wrap(err, "error validating and cleaning files")
+		return
 	}
 	id, err := uuid.NewRandom()
 	if err != nil {
-		return err
+		err = errors.Wrap(err, "error generating uuid")
+		return
 	}
 	fun := models.Function{
 		ID:   id.String(),

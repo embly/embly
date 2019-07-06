@@ -1,6 +1,6 @@
 FROM maxmcd/embly-compile-rust-wasm
 WORKDIR /opt/app/
-COPY rustcompile .
-CMD /opt/app/rustcmpile
+COPY /cmd/rustcompile/rustcompile .
+CMD /opt/app/rustcompile
 
 

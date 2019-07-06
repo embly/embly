@@ -5,46 +5,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      - postgres
-      - redis
+      args:
+        EMBLY_USER: $EMBLY_USER
     volumes:
       - ../:/go/src/github.com/maxmcd/embly/
       - control:/go/pkg/
       - homecache:/root/.cache
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - DB_DISABLE_SSL=truthy
-      - DB_HOST=postgres
-      - DB_PASSWORD=postgresi
-      - DB_DATABASE=postgres
-      - DB_PORT=5432
-      - DB_USERNAME=postgres
-      - ENV=dev
-      - REDIS_HOST=redis:6379
-  redis:
-    image: redis:5.0.4
-    # https://redis.io/topics/persistence
-    command: redis-server --appendonly yes
-    restart: always
-    expose:
-      - "6379"
-    volumes:
-      - redis:/data
-  postgres:
-    image: postgres:10.3
-    restart: always
-    expose:
-      - "5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres:/var/lib/postgresql/data
-      # - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
 
 volumes:
   control: {}
   homecache: {}
-  postgres: {}
-  redis: {}
+
+networks:
+  default:
+    external:
+      name: embly

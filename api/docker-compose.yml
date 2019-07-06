@@ -14,16 +14,19 @@ services:
     environment:
       - DB_DISABLE_SSL=truthy
       - DB_HOST=postgres
-      - DB_PASSWORD=postgresi
+      - DB_PASSWORD=postgres
       - DB_DATABASE=postgres
       - DB_PORT=5432
       - DB_USERNAME=postgres
       - ENV=dev
+      - RC_HOST=rustcompile:9000
       - REDIS_HOST=redis:6379
   rustcompile:
     build:
       context: ./
       dockerfile: ./cmd/rustcompile/Dockerfile
+    volumes:
+      - cargoregistry:/usr/local/cargo/registry
   redis:
     image: redis:5.0.4
     # https://redis.io/topics/persistence
@@ -44,7 +47,12 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
       # - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
-
 volumes:
+  cargoregistry: {}
   redis: {}
   postgres: {}
+
+networks:
+  default:
+    external:
+      name: embly

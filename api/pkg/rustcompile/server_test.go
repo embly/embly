@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-
 	rc "embly/api/pkg/rustcompile/proto"
+
 	"google.golang.org/grpc"
 )
 
@@ -29,7 +29,6 @@ func TestStart(t *testing.T) {
 		t.Error(err)
 	}
 	fmt.Println(r)
-
 
 	r, err = buildClient.Recv()
 	if err != nil {

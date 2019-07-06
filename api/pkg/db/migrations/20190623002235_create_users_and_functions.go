@@ -18,13 +18,21 @@ func Up_20190623002235(txn *sql.Tx) {
 			id UUID NOT NULL PRIMARY KEY,
 			name VARCHAR NOT NULL,
 			tag VARCHAR,
-			user_id INT NOT NULL,
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			FOREIGN KEY (user_id) REFERENCES users(id)
+			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)`,
 	)
 }
+
+// `CREATE TABLE functions (
+// 	id UUID NOT NULL PRIMARY KEY,
+// 	name VARCHAR NOT NULL,
+// 	tag VARCHAR,
+// 	user_id INT NOT NULL,
+// 	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+// 	updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+// 	FOREIGN KEY (user_id) REFERENCES users(id)
+// )`,
 
 // Down is executed when this migration is rolled back
 func Down_20190623002235(txn *sql.Tx) {

@@ -27,7 +27,6 @@ type Function struct {
 	ID        string      `boil:"id" json:"id" toml:"id" yaml:"id"`
 	Name      string      `boil:"name" json:"name" toml:"name" yaml:"name"`
 	Tag       null.String `boil:"tag" json:"tag,omitempty" toml:"tag" yaml:"tag,omitempty"`
-	UserID    int         `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
 	CreatedAt time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
@@ -39,14 +38,12 @@ var FunctionColumns = struct {
 	ID        string
 	Name      string
 	Tag       string
-	UserID    string
 	CreatedAt string
 	UpdatedAt string
 }{
 	ID:        "id",
 	Name:      "name",
 	Tag:       "tag",
-	UserID:    "user_id",
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
 }
@@ -85,15 +82,6 @@ func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
-type whereHelperint struct{ field string }
-
-func (w whereHelperint) EQ(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperint) NEQ(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperint) LT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperint) LTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperint) GT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperint) GTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-
 type whereHelpertime_Time struct{ field string }
 
 func (w whereHelpertime_Time) EQ(x time.Time) qm.QueryMod {
@@ -119,28 +107,22 @@ var FunctionWhere = struct {
 	ID        whereHelperstring
 	Name      whereHelperstring
 	Tag       whereHelpernull_String
-	UserID    whereHelperint
 	CreatedAt whereHelpertime_Time
 	UpdatedAt whereHelpertime_Time
 }{
 	ID:        whereHelperstring{field: "\"functions\".\"id\""},
 	Name:      whereHelperstring{field: "\"functions\".\"name\""},
 	Tag:       whereHelpernull_String{field: "\"functions\".\"tag\""},
-	UserID:    whereHelperint{field: "\"functions\".\"user_id\""},
 	CreatedAt: whereHelpertime_Time{field: "\"functions\".\"created_at\""},
 	UpdatedAt: whereHelpertime_Time{field: "\"functions\".\"updated_at\""},
 }
 
 // FunctionRels is where relationship names are stored.
 var FunctionRels = struct {
-	User string
-}{
-	User: "User",
-}
+}{}
 
 // functionR is where relationships are stored.
 type functionR struct {
-	User *User
 }
 
 // NewStruct creates a new relationship struct
@@ -152,8 +134,8 @@ func (*functionR) NewStruct() *functionR {
 type functionL struct{}
 
 var (
-	functionAllColumns            = []string{"id", "name", "tag", "user_id", "created_at", "updated_at"}
-	functionColumnsWithoutDefault = []string{"id", "name", "tag", "user_id"}
+	functionAllColumns            = []string{"id", "name", "tag", "created_at", "updated_at"}
+	functionColumnsWithoutDefault = []string{"id", "name", "tag"}
 	functionColumnsWithDefault    = []string{"created_at", "updated_at"}
 	functionPrimaryKeyColumns     = []string{"id"}
 )
@@ -431,168 +413,6 @@ func (q functionQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (b
 	}
 
 	return count > 0, nil
-}
-
-// User pointed to by the foreign key.
-func (o *Function) User(mods ...qm.QueryMod) userQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("id=?", o.UserID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	query := Users(queryMods...)
-	queries.SetFrom(query.Query, "\"users\"")
-
-	return query
-}
-
-// LoadUser allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (functionL) LoadUser(ctx context.Context, e boil.ContextExecutor, singular bool, maybeFunction interface{}, mods queries.Applicator) error {
-	var slice []*Function
-	var object *Function
-
-	if singular {
-		object = maybeFunction.(*Function)
-	} else {
-		slice = *maybeFunction.(*[]*Function)
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &functionR{}
-		}
-		args = append(args, object.UserID)
-
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &functionR{}
-			}
-
-			for _, a := range args {
-				if a == obj.UserID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.UserID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(qm.From(`users`), qm.WhereIn(`id in ?`, args...))
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load User")
-	}
-
-	var resultSlice []*User
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice User")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for users")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for users")
-	}
-
-	if len(functionAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.User = foreign
-		if foreign.R == nil {
-			foreign.R = &userR{}
-		}
-		foreign.R.Functions = append(foreign.R.Functions, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.UserID == foreign.ID {
-				local.R.User = foreign
-				if foreign.R == nil {
-					foreign.R = &userR{}
-				}
-				foreign.R.Functions = append(foreign.R.Functions, local)
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// SetUser of the function to the related item.
-// Sets o.R.User to related.
-// Adds o to related.R.Functions.
-func (o *Function) SetUser(ctx context.Context, exec boil.ContextExecutor, insert bool, related *User) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
-
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"functions\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
-		strmangle.WhereClause("\"", "\"", 2, functionPrimaryKeyColumns),
-	)
-	values := []interface{}{related.ID, o.ID}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, updateQuery)
-		fmt.Fprintln(boil.DebugWriter, values)
-	}
-
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.UserID = related.ID
-	if o.R == nil {
-		o.R = &functionR{
-			User: related,
-		}
-	} else {
-		o.R.User = related
-	}
-
-	if related.R == nil {
-		related.R = &userR{
-			Functions: FunctionSlice{o},
-		}
-	} else {
-		related.R.Functions = append(related.R.Functions, o)
-	}
-
-	return nil
 }
 
 // Functions retrieves all the records using an executor.

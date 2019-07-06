@@ -5,39 +5,74 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+
+	rc "embly/api/pkg/rustcompile/proto"
 
 	"github.com/gin-gonic/gin"
-	rc "embly/api/pkg/rustcompile/proto"
-	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
 // Start ...
-func Start(port int) string {
+func Start(port int) {
 	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	addr := fmt.Sprintf(":%d", port)
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpc.WithInsecure()
 	grpcServer := grpc.NewServer()
 	rc.RegisterRustCompileServer(grpcServer, &server{})
-
-	go grpcServer.Serve(lis)
-
-	return lis.Addr().String()
+	logrus.Info("Serving rustcompile on " + addr)
+	grpcServer.Serve(lis)
 }
 
 type server struct{}
 
-func (s *server) StartBuild(code *rc.Code, stream rc.RustCompile_StartBuildServer) error {
-	result := &rc.Result{Log: "Hello"}
-	if err := stream.Send(result); err != nil {
+func (s *server) StartBuild(code *rc.Code, stream rc.RustCompile_StartBuildServer) (err error) {
+	fmt.Println(code)
+	var tmpdir string
+	if tmpdir, err = ioutil.TempDir("", "rustcompile"); err != nil {
+		return
+	}
+	var resultTmpdir string
+	if resultTmpdir, err = ioutil.TempDir("", "rustcompile"); err != nil {
+		return
+	}
+
+	for _, file := range code.Files {
+		location := path.Join(tmpdir, file.Path)
+		directory := filepath.Dir(location)
+		if err = os.MkdirAll(directory, os.ModePerm); err != nil {
+			return
+		}
+		if err = ioutil.WriteFile(path.Join(tmpdir, file.Path), file.Body, 0644); err != nil {
+			return
+		}
+	}
+	cmd := exec.Command("bash", "-c", fmt.Sprintf(`cd %s \
+	&& cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir %s \
+	&& wasm-strip %s/*.wasm \
+	&& ls -lah %s/*.wasm
+`, tmpdir, resultTmpdir, resultTmpdir, resultTmpdir))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Start(); err != nil {
 		return err
 	}
-	return errors.New("hmmm")
+	if err = cmd.Wait(); err != nil {
+		return err
+	}
+	fmt.Println("command finished")
+	return nil
 }
 
 func indexHandler(ctx context.Context, db *sql.DB, c *gin.Context) error {
