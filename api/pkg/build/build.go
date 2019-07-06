@@ -2,6 +2,7 @@ package build
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"mime/multipart"
 
@@ -82,7 +83,7 @@ func buildHandler(ctx context.Context, rc *routing.Context, c *gin.Context) erro
 	if err = fun.Insert(ctx, rc.DB, boil.Infer()); err != nil {
 		return err
 	}
-	// pf.toCode()
+	fmt.Println(pf.toCode())
 
 	c.JSON(200, gin.H{"function": gin.H{"id": fun.ID}})
 

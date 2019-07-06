@@ -1,6 +1,7 @@
 package tester
 
 import (
+	"context"
 	"database/sql"
 	"embly/api/pkg/routing"
 	"fmt"
@@ -8,8 +9,11 @@ import (
 	"net/http"
 	"testing"
 
+	rc "embly/api/pkg/rustcompile/proto"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 )
 
 // Tester is a wrapper around testing.T
@@ -17,12 +21,18 @@ type Tester struct {
 	*testing.T
 }
 
+type RustCompileTestClient struct{}
+
+func (c *RustCompileTestClient) StartBuild(ctx context.Context, in rc.Code, opts ...grpc.CallOption) (sbc rc.RustCompile_StartBuildClient, err error) {
+	return
+}
 func (t *Tester) NewRoutingContext() (rc *routing.Context, mock sqlmock.Sqlmock) {
 	var db *sql.DB
 	db, mock = t.NewMockDB()
+	rctc := RustCompileTestClient{}
 	rc = &routing.Context{
 		DB:       db,
-		RCClient: nil, //TODO
+		RCClient: &rctc,
 	}
 	return
 }

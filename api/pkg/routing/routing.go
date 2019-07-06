@@ -14,7 +14,7 @@ import (
 // Context is the context passed to a request
 type Context struct {
 	DB       *sql.DB
-	RCClient *rc.RustCompileClient
+	RCClient rc.RustCompileClient
 }
 
 // ErrorWrapHandler ...

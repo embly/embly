@@ -2,13 +2,9 @@ package build
 
 import (
 	"bytes"
-	"database/sql"
 	"database/sql/driver"
-	"embly/api/pkg/config"
-	"embly/api/pkg/dbutil"
 	"embly/api/pkg/routing"
 	"embly/api/pkg/tester"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -17,24 +13,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 )
-
-var db *sql.DB
-
-func init() {
-	config.Register(
-		"DB_HOST",
-		"DB_PORT",
-		"DB_USERNAME",
-		"DB_DATABASE",
-		"DB_PASSWORD",
-		"REDIS_HOST",
-	)
-	var err error
-	db, err = dbutil.Connect()
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 func handler(rc *routing.Context) http.Handler {
 	r := gin.Default()
