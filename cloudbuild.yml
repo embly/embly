@@ -1,3 +1,7 @@
 steps:
-  - name: "gcr.io/cloud-builders/docker"
-    args: ["build", "-t", "foo", "-f", "api/test.Dockerfile", "api/"]
+- name: "gcr.io/kaniko-project/executor:latest"
+  args:
+  - --cache=true
+  - --cache-ttl=XXh
+  - -f=api/test.Dockerfile
+  - api/
