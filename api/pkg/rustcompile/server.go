@@ -38,7 +38,6 @@ func Start(port int) {
 type server struct{}
 
 func (s *server) StartBuild(code *rc.Code, stream rc.RustCompile_StartBuildServer) (err error) {
-	fmt.Println(code)
 	var tmpdir string
 	if tmpdir, err = ioutil.TempDir("", "rustcompile"); err != nil {
 		return
@@ -59,7 +58,7 @@ func (s *server) StartBuild(code *rc.Code, stream rc.RustCompile_StartBuildServe
 		}
 	}
 	cmd := exec.Command("bash", "-c", fmt.Sprintf(`cd %s \
-	&& cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir %s \
+	&& cargo +nightly build --offline --target wasm32-wasi --release -Z unstable-options --out-dir %s \
 	&& wasm-strip %s/*.wasm \
 	&& ls -lah %s/*.wasm
 `, tmpdir, resultTmpdir, resultTmpdir, resultTmpdir))

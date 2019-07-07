@@ -59,11 +59,11 @@ embly="*"
 	mock.ExpectExec(`INSERT INTO "functions"`).WithArgs(
 		AnyValue{}, "foo",
 		AnyValue{}, AnyValue{},
-		AnyValue{}, AnyValue{},
+		AnyValue{},
 	).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	rctc.ResultChan <- &rc.Result{
-		Log: "hi",
+		Stdout: []byte("hi"),
 	}
 	rctc.ResultChan <- &rc.Result{
 		Binary: []byte("hi"),

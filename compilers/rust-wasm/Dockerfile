@@ -40,6 +40,10 @@ RUN set -eux; \
     curl -L https://github.com/WebAssembly/wabt/releases/download/1.0.11/wabt-1.0.11-linux.tar.gz | tar zx; \
         mv wabt-1.0.11/wasm-strip /usr/bin; \
         rm -rf wabt*; \
+    wget https://github.com/mozilla/sccache/releases/download/0.2.9/sccache-0.2.9-x86_64-unknown-linux-musl.tar.gz; \
+    tar -zxvf sccache-0.2.9-x86_64-unknown-linux-musl.tar.gz; \
+    mv ./sccache-0.2.9-x86_64-unknown-linux-musl/sccache /usr/bin/sccache; \
+    rm -rf sccache*; \
     apt-get remove -y --auto-remove \
         wget \
         ; \

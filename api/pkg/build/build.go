@@ -100,8 +100,11 @@ func buildHandler(ctx context.Context, roc *routing.Context, c *gin.Context) (er
 		if result, err = sbClient.Recv(); err != nil {
 			return err
 		}
-		if result.Log != "" {
-			logOutput.WriteString(result.Log)
+		if result.Stdout != nil {
+			logOutput.Write(result.Stdout)
+		}
+		if result.Stderr != nil {
+			logOutput.Write(result.Stderr)
 		}
 		if len(result.Binary) != 0 {
 			resultingBinary = result.Binary

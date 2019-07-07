@@ -29,7 +29,7 @@ func formRequest() (err error) {
 name = "foo"
 version = "0.0.1"
 [dependencies]
-embly="*"
+embly="0.0.2"
 	`))
 	if err = writer.Close(); err != nil {
 		return

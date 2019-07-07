@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// NewRustCompileClient ...
 func NewRustCompileClient(target string) (rcc rc.RustCompileClient, err error) {
 	conn, err := grpc.Dial(target, grpc.WithInsecure())
 	if err != nil {

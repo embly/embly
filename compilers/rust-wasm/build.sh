@@ -4,4 +4,4 @@ cd "$(dirname ${BASH_SOURCE[0]})"
 
 export AWS_PROFILE=max
 
-docker-compose build app
+docker-compose build --no-cache app
