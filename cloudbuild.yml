@@ -1,10 +1,8 @@
-
-
 steps:
-- name: "gcr.io/kaniko-project/executor:latest"
-  args:
-  - --cache=true
-  - --cache-ttl=60h
-  - --destination=gcr.io/media-9x16/embly-api-test
-  - --dockerfile=/workspace/api/test.Dockerfile
-  - --context=/workspace/api/
+  - name: "gcr.io/kaniko-project/executor:latest"
+    args:
+      - --cache=true
+      - --cache-ttl=60h
+      - --destination=gcr.io/media-9x16/embly-api-test
+      - --dockerfile=/workspace/api/test.Dockerfile
+      - --context=/workspace/api/

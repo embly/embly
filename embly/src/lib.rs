@@ -113,20 +113,39 @@ impl io::Write for Comm {
 extern "C" {
     fn _read(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u32;
     fn _write(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u32;
+    fn _spawn(
+        name: *const u8,
+        name_len: u32,
+        payload: *const u8,
+        payload_len: u32,
+        id: *mut i32,
+    ) -> u32;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 unsafe fn _read(_id: i32, _payload: *const u8, payload_len: u32, ln: *mut i32) -> u32 {
     // lie and say we read things
     *ln = payload_len as i32;
-    return 0;
+    0
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 unsafe fn _write(_id: i32, _payload: *const u8, payload_len: u32, ln: *mut i32) -> u32 {
     // lie and say we write things
     *ln = payload_len as i32;
-    return 0;
+    0
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+unsafe fn _spawn(
+    _name: *const u8,
+    _name_len: u32,
+    _payload: *const u8,
+    _payload_len: u32,
+    id: *mut i32,
+) -> u32 {
+    *id = 1;
+    0
 }
 
 fn read(id: i32, payload: &mut [u8]) -> Result<usize> {
@@ -143,6 +162,60 @@ fn write(id: i32, payload: &[u8]) -> Result<usize> {
     let err = unsafe { _write(id, payload.as_ptr(), payload.len() as u32, ln_ptr) };
     println!("read err {:?}", err);
     Ok(ln as usize)
+}
+
+fn spawn(name: &str, payload: &[u8]) -> Result<i32> {
+    let mut id: i32 = 0;
+    let id_ptr: *mut i32 = &mut id;
+    let err = unsafe {
+        _spawn(
+            name.as_ptr(),
+            name.len() as u32,
+            payload.as_ptr(),
+            payload.len() as u32,
+            id_ptr,
+        )
+    };
+    println!("spawn err {:?}", err);
+    Ok(id)
+}
+
+/// Function handles spawning another function from within a function
+pub struct Function {}
+
+impl Function {
+    /// Spawn a function
+    ///
+    /// ```
+    /// use embly::Comm;
+    /// use embly::Function;
+    /// use std::io;
+    /// use std::io::Read;
+    /// use std::io::Write;
+    ///
+    /// fn entrypoint(comm: Comm) -> io::Result<()> {
+    ///     let mut foo_comm = Function::spawn("github.com/maxmcd/foo", "Hello".as_bytes())?;
+    ///     // can send an empty vec if your spark doesn't expect
+    ///     // to receive any bytes
+    ///     let mut foo_comm = Function::spawn("github.com/maxmcd/foo", &Vec::new())?;
+    ///     foo_comm.write_all(" foo".as_bytes())?;
+    ///
+    ///
+    ///     // get a response back from  foo
+    ///     let mut buffer = Vec::new();
+    ///     foo_comm.read_to_end(&mut buffer)?;
+    ///     Ok(())
+    /// }
+    ///
+    /// ```
+    ///
+    pub fn spawn(name: &str, bytes: &[u8]) -> Result<Comm> {
+        let _ = name;
+        let _ = bytes;
+        Ok(Comm {
+            id: spawn(name, bytes)?,
+        })
+    }
 }
 
 /// Run a function
