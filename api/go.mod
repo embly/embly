@@ -18,5 +18,6 @@ require (
 	github.com/volatiletech/inflect v0.0.0-20170731032912-e7201282ae8d // indirect
 	github.com/volatiletech/null v8.0.0+incompatible
 	github.com/volatiletech/sqlboiler v3.4.0+incompatible
+	github.com/wasmerio/go-ext-wasm v0.0.0-20190708100532-f819ba87ebd2 // indirect
 	google.golang.org/grpc v1.21.1
 )

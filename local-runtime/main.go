@@ -32,6 +32,19 @@ type config struct {
 	debug   bool
 }
 
+type emblyProject struct {
+	Functions map[string]projectFunction `json:"functions"`
+}
+
+type projectFunction struct {
+	Path    string `json:"path"`
+	Runtime string `json:"runtime"`
+}
+
+func findConfig() {
+	os.Getwd()
+}
+
 func main() {
 	flags()
 	if err := run(); err != nil {

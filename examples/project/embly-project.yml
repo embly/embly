@@ -1,0 +1,4 @@
+functions:
+    hello: 
+        path: ./hello
+        runtime: rust
