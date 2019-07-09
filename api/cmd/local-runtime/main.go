@@ -17,7 +17,6 @@ import "C"
 
 import (
 	"encoding/binary"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -27,41 +26,19 @@ import (
 	wasm "github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
-type config struct {
-	verbose bool
-	debug   bool
-}
 
-type emblyProject struct {
-	Functions map[string]projectFunction `json:"functions"`
-}
 
-type projectFunction struct {
-	Path    string `json:"path"`
-	Runtime string `json:"runtime"`
-}
-
-func findConfig() {
-	os.Getwd()
-}
 
 func main() {
+	ep, err := getEmblyProjectFile()
+	fmt.Println(ep, err)
 	flags()
-	if err := run(); err != nil {
-		log.Println(wasm.GetLastError())
-		log.Fatalf("%+v", err)
-	}
+	log.Println("hi")
+	// if err := run(); err != nil {
+	// 	log.Println(wasm.GetLastError())
+	// 	log.Fatalf("%+v", err)
+	// }
 }
-
-func flags() {
-	cfg := config{}
-	flag.BoolVar(&cfg.verbose, "v", false, "enable verbose logging")
-	flag.BoolVar(&cfg.debug, "d", false, "print stdout and stderr from wasm")
-	flag.Parse()
-	c = &cfg
-}
-
-var c *config
 
 // wasm.Instance
 func run() (err error) {
