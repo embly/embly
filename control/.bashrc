@@ -11,3 +11,5 @@ export HISTSIZE=$HISTFILESIZE
 export HISTCONTROL=ignoreboth:erasedups
 shopt -s histappend
 export PROMPT_COMMAND="history -a; history -c; history -r; $PROMPT_COMMAND"
+
+export PATH=$PATH:/go/src/github.com/maxmcd/embly/tools

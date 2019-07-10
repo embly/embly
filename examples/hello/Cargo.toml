@@ -5,4 +5,4 @@ authors = ["maxmcd <max.t.mcdonnell@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-embly = {path = "../../embly"}
+embly = {path = "../../embly-rs"}

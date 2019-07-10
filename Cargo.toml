@@ -1,5 +1,5 @@
 [workspace]
 members = [
-  "embly",
+  "embly-rs",
   "programs/hello"
 ]

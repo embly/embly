@@ -5,7 +5,9 @@ go 1.12
 replace github.com/docker/docker v0.0.0-20170601211448-f5ec1e2936dc => github.com/docker/engine v0.0.0-20180718150940-a3ef7e9a9bda
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/DATA-DOG/go-sqlmock v1.3.3
+	github.com/Microsoft/go-winio v0.4.12 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.0.0-20170601211448-f5ec1e2936dc
@@ -23,6 +25,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pkg/errors v0.8.1
+	github.com/segmentio/textio v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.3.0

@@ -3,7 +3,7 @@ version: "3.3"
 services:
   api:
     build:
-      context: ./
+      context: ../
       dockerfile: ./cmd/api/Dockerfile
     ports:
       - "3000:3000"
@@ -23,7 +23,7 @@ services:
       - REDIS_HOST=redis:6379
   rustcompile:
     build:
-      context: ./
+      context: ../
       dockerfile: ./cmd/rustcompile/Dockerfile
     volumes:
       - cargoregistry:/usr/local/cargo/registry

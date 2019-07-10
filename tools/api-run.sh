@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 cd "$(dirname ${BASH_SOURCE[0]})"
+cd ..
+
 set -Euxo pipefail
 # todo: check that this is executing in the embly environment
 
@@ -32,7 +34,7 @@ do
     cd ./cmd/rustcompile/
     go build
     cd ../../
-    sudo docker-compose build
-    sudo docker-compose up -d
-    sudo docker-compose logs -f
+    sudo docker-compose -f ./tools/api-docker-compose.yml build
+    sudo docker-compose -f ./tools/api-docker-compose.yml up -d
+    sudo docker-compose -f ./tools/api-docker-compose.yml logs -f
 done
