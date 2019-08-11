@@ -8,6 +8,15 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ../../embly/:/opt/embly/
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+  clean:
+    image: maxmcd/embly-compile-rust-wasm:clean
+    build:
+      context: .
+      dockerfile: clean.Dockerfile
   img:
     image: internal/embly-compile-rust-wasm-img-for-cache
     build:

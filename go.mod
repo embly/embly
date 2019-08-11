@@ -1,4 +1,4 @@
-module embly/api
+module embly
 
 go 1.12
 
@@ -16,11 +16,15 @@ require (
 	github.com/getlantern/uuid v1.2.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/gin-gonic/gin v1.4.0
+	github.com/go-playground/locales v0.12.1 // indirect
+	github.com/go-playground/universal-translator v0.16.0 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
-	github.com/golang/protobuf v1.3.1
+	github.com/gogo/protobuf v1.2.1
+	github.com/golang/protobuf v1.3.2
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
+	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/lib/pq v1.1.1
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -32,7 +36,7 @@ require (
 	github.com/volatiletech/inflect v0.0.0-20170731032912-e7201282ae8d // indirect
 	github.com/volatiletech/null v8.0.0+incompatible
 	github.com/volatiletech/sqlboiler v3.4.0+incompatible
-	github.com/wasmerio/go-ext-wasm v0.0.0-20190708100532-f819ba87ebd2
 	google.golang.org/grpc v1.21.1
+	gopkg.in/go-playground/validator.v9 v9.29.0
 	gotest.tools v2.2.0+incompatible // indirect
 )

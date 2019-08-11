@@ -5,7 +5,7 @@ package rustcompile
 // 	"fmt"
 // 	"testing"
 
-// 	rc "embly/api/pkg/rustcompile/proto"
+// 	rc "embly/pkg/rustcompile/proto"
 
 // 	"google.golang.org/grpc"
 // )

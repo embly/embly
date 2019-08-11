@@ -2,7 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"embly/api/pkg/db"
+	"embly/pkg/db"
 )
 
 // Up is executed when this migration is applied

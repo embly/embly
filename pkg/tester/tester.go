@@ -3,14 +3,14 @@ package tester
 import (
 	"context"
 	"database/sql"
-	"embly/api/pkg/routing"
+	"embly/pkg/routing"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
 
-	rc "embly/api/pkg/rustcompile/proto"
-	"embly/api/pkg/cache"
+	"embly/pkg/cache"
+	rc "embly/pkg/rustcompile/proto"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"

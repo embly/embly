@@ -13,7 +13,7 @@ import (
 	"path"
 	"path/filepath"
 
-	rc "embly/api/pkg/rustcompile/proto"
+	rc "embly/pkg/rustcompile/proto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"

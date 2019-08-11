@@ -1,0 +1,20 @@
+{
+  "wasi_unstable": {
+    "args_get": "__wasi_args_get",
+    "args_sizes_get": "__wasi_args_sizes_get",
+    "environ_get": "__wasi_environ_get",
+    "environ_sizes_get": "__wasi_environ_sizes_get",
+    "fd_fdstat_get": "__wasi_fd_fdstat_get",
+    "fd_prestat_dir_name": "__wasi_fd_prestat_dir_name",
+    "fd_prestat_get": "__wasi_fd_prestat_get",
+    "fd_write": "__wasi_fd_write",
+    "proc_exit": "__wasi_proc_exit",
+    "random_get": "__wasi_random_get"
+  },
+  "embly": {
+    "_read": "__read",
+    "_write": "__write",
+    "_spawn": "__spawn",
+    "_events": "__events"
+  }
+}

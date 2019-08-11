@@ -1,7 +1,7 @@
 package rustcompile
 
 import (
-	rc "embly/api/pkg/rustcompile/proto"
+	rc "embly/pkg/rustcompile/proto"
 
 	"google.golang.org/grpc"
 )

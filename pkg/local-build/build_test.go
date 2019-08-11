@@ -1,17 +1,31 @@
 package localbuild
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
-
-	"github.com/sirupsen/logrus"
 )
 
+const SockAddr = "/tmp/embly.sock"
+
 func TestCreate(t *testing.T) {
-	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableColors: false,
-		FullTimestamp: false,
-	})
-	logrus.SetLevel(logrus.DebugLevel)
-	// err := Create()
-	t.Error(nil)
+	t.Skip()
+
+	wd, _ := os.Getwd()
+
+	buildLocation := filepath.Join(wd, "../../examples/project/hello")
+	buildContext := filepath.Join(wd, "../../")
+	destination := filepath.Join(wd, "out.out")
+
+	if err := Create("hello", buildLocation, buildContext, destination); err != nil {
+		t.Error(err)
+	}
+
+	// defer os.Remove(destination)
+	info, err := os.Stat(destination)
+	if err != nil {
+		t.Error(err)
+	}
+	_ = info
+
 }

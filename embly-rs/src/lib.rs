@@ -10,7 +10,7 @@
 //! work with other targets
 
 #![deny(
-    missing_docs,
+    // missing_docs,
     trivial_numeric_casts,
     unstable_features,
     unused_extern_crates,
@@ -35,9 +35,23 @@
     )
 )]
 
+use error::Result;
 use std::io;
-use std::io::Result;
+use std::time;
+pub mod error;
+pub mod http;
 
+use std::collections::HashMap;
+use std::sync::Mutex;
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+    static ref EVENT_REGISTRY: Mutex<Vec<i32>> = {
+        let m = Vec::new();
+        Mutex::new(m)
+    };
+}
 /// Comm's handle communication between functions or to the function caller
 ///
 /// ## Receive Bytes
@@ -95,37 +109,61 @@ pub struct Comm {
     id: i32,
 }
 
+impl Comm {
+    pub fn wait(&self) {
+        let ids = events(Some(time::Duration::new(0, 0))).unwrap();
+        if ids.len() == 0 {
+            events(None).unwrap();
+        }
+    }
+}
+
 impl io::Read for Comm {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         read(self.id, buf)
     }
 }
 impl io::Write for Comm {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         write(self.id, buf)
     }
-    fn flush(&mut self) -> Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 
 #[cfg(all(target_arch = "wasm32"))]
+#[link(wasm_import_module = "embly")]
 extern "C" {
     fn _read(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u32;
     fn _write(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u32;
-    fn _spawn(
-        name: *const u8,
-        name_len: u32,
-        payload: *const u8,
-        payload_len: u32,
-        id: *mut i32,
+    fn _spawn(name: *const u8, name_len: u32, id: *mut i32) -> u32;
+    fn _events(
+        non_blocking: u8,
+        timeout_s: u64,
+        timeout_ns: u32,
+        ids: *const i32,
+        ids_len: u32,
+        ln: *mut i32,
     ) -> u32;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-unsafe fn _read(_id: i32, _payload: *const u8, payload_len: u32, ln: *mut i32) -> u32 {
-    // lie and say we read things
-    *ln = payload_len as i32;
+unsafe fn _events(
+    _non_blocking: u8,
+    _timeout_s: u64,
+    _timeout_ns: u32,
+    _ids: *const i32,
+    _ids_len: u32,
+    _ln: *mut i32,
+) -> u32 {
+    0
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+unsafe fn _read(_id: i32, _payload: *const u8, _payload_len: u32, ln: *mut i32) -> u32 {
+    // lie and say EOF
+    *ln = 0;
     0
 }
 
@@ -137,47 +175,58 @@ unsafe fn _write(_id: i32, _payload: *const u8, payload_len: u32, ln: *mut i32) 
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-unsafe fn _spawn(
-    _name: *const u8,
-    _name_len: u32,
-    _payload: *const u8,
-    _payload_len: u32,
-    id: *mut i32,
-) -> u32 {
+unsafe fn _spawn(_name: *const u8, _name_len: u32, id: *mut i32) -> u32 {
     *id = 1;
     0
 }
 
-fn read(id: i32, payload: &mut [u8]) -> Result<usize> {
+fn read(id: i32, payload: &mut [u8]) -> io::Result<usize> {
     let mut ln: i32 = 0;
     let ln_ptr: *mut i32 = &mut ln;
-    let err = unsafe { _read(id, payload.as_ptr(), payload.len() as u32, ln_ptr) };
-    println!("read err {:?}", err);
+    let _ = unsafe { _read(id, payload.as_ptr(), payload.len() as u32, ln_ptr) };
     Ok(ln as usize)
 }
 
-fn write(id: i32, payload: &[u8]) -> Result<usize> {
+fn write(id: i32, payload: &[u8]) -> io::Result<usize> {
     let mut ln: i32 = 0;
     let ln_ptr: *mut i32 = &mut ln;
-    let err = unsafe { _write(id, payload.as_ptr(), payload.len() as u32, ln_ptr) };
-    println!("read err {:?}", err);
+    let _ = unsafe { _write(id, payload.as_ptr(), payload.len() as u32, ln_ptr) };
     Ok(ln as usize)
 }
 
-fn spawn(name: &str, payload: &[u8]) -> Result<i32> {
+fn spawn(name: &str) -> Result<i32> {
     let mut id: i32 = 0;
     let id_ptr: *mut i32 = &mut id;
-    let err = unsafe {
-        _spawn(
-            name.as_ptr(),
-            name.len() as u32,
-            payload.as_ptr(),
-            payload.len() as u32,
-            id_ptr,
-        )
-    };
+    let err = unsafe { _spawn(name.as_ptr(), name.len() as u32, id_ptr) };
     println!("spawn err {:?}", err);
     Ok(id)
+}
+
+fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>> {
+    let mut ln: i32 = 0;
+    let ln_ptr: *mut i32 = &mut ln;
+    let mut out: [i32; 10] = [0; 10];
+    let mut timeout_s: u64 = 0;
+    let mut timeout_ns: u32 = 0;
+    let mut non_blocking: u8 = 0;
+    if let Some(dur) = timeout {
+        timeout_s = dur.as_secs();
+        timeout_ns = dur.subsec_nanos();
+    } else {
+        non_blocking = 1
+    };
+    let _ = unsafe {
+        _events(
+            non_blocking,
+            timeout_s,
+            timeout_ns,
+            out.as_ptr(),
+            out.len() as u32,
+            ln_ptr,
+        )
+    };
+    println!("events print  {:?}", (out, ln));
+    Ok(out[..(ln as usize)].to_vec())
 }
 
 /// Function handles spawning another function from within a function
@@ -209,12 +258,8 @@ impl Function {
     ///
     /// ```
     ///
-    pub fn spawn(name: &str, bytes: &[u8]) -> Result<Comm> {
-        let _ = name;
-        let _ = bytes;
-        Ok(Comm {
-            id: spawn(name, bytes)?,
-        })
+    pub fn spawn(name: &str) -> Result<Comm> {
+        Ok(Comm { id: spawn(name)? })
     }
 }
 
@@ -239,7 +284,9 @@ impl Function {
 /// ```
 ///
 pub fn run(to_run: fn(Comm) -> io::Result<()>) {
+    println!("running regular func");
     let c = Comm { id: 1 };
+    // todo: do something with this error
     to_run(c).unwrap();
 }
 

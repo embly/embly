@@ -1,7 +1,7 @@
 package main
 
 import (
-	"embly/api/pkg/rustcompile"
+	"embly/pkg/rustcompile"
 )
 
 func main() {

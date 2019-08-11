@@ -1,0 +1,9 @@
+[package]
+name = "foo"
+version = "0.0.1"
+[dependencies]
+embly="0.0.2"
+http = "0.1.17"
+httparse = "1.3.4"
+
+[workspace]

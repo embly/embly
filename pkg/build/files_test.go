@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	rc "embly/api/pkg/rustcompile/proto"
-	"embly/api/pkg/tester"
+	rc "embly/pkg/rustcompile/proto"
+	"embly/pkg/tester"
 )
 
 var plainMain = &rc.File{

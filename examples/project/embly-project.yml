@@ -1,4 +1,22 @@
 functions:
-    hello: 
-        path: ./hello
-        runtime: rust
+  - name: hello
+    path: ./examples/project/hello
+    context: ./../.. # todo: let's find a better way to do this
+    runtime: rust
+  - name: echo
+    path: ./examples/project/echo
+    context: ./../.. # todo: let's find a better way to do this
+    runtime: rust
+  - name: listener
+    path: ./examples/project/listener
+    context: ./../..
+    runtime: rust
+gateways:
+  - name: index
+    type: http
+    port: 8082
+    function: listener
+  - name: echo-tcp
+    type: tcp
+    port: 8083
+    function: echo

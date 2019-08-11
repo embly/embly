@@ -1,0 +1,23 @@
+[package]
+name = "embly-wrapper-rs"
+version = "0.1.0"
+authors = ["maxmcd <max.t.mcdonnell@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+protobuf = "2.6.0"
+rand = "0.7.0"
+lucet-wasi = "0.1.1"
+lucet-runtime = "0.1.1"
+lucet-runtime-internals = "0.1.1"
+failure = "0.1"
+
+[build-dependencies]
+protoc-rust = "2.0"
+
+# https://github.com/johnthagen/min-sized-rust
+[profile.release]
+opt-level = 'z' 
+lto = true
+codegen-units = 1
+panic = 'abort'

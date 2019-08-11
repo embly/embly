@@ -1,8 +1,8 @@
 package main
 
 import (
-	"embly/api/pkg/build"
-	"embly/api/pkg/routing"
+	"embly/pkg/build"
+	"embly/pkg/routing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"

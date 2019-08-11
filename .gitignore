@@ -3,3 +3,6 @@
 *.wasm
 target
 *.png
+embly_build
+
+*.out

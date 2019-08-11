@@ -1,5 +1,8 @@
 [workspace]
 members = [
   "embly-rs",
-  "programs/hello"
+  "embly-wrapper-rs",
+  "examples/project/hello",
+  "examples/project/listener",
+  "examples/project/echo"
 ]

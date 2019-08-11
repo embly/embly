@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"embly/api/pkg/config"
+	"embly/pkg/config"
 
 	_ "github.com/lib/pq" // for the db
 )

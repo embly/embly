@@ -3,8 +3,8 @@ package build
 import (
 	"bytes"
 	"database/sql/driver"
-	"embly/api/pkg/routing"
-	"embly/api/pkg/tester"
+	"embly/pkg/routing"
+	"embly/pkg/tester"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -13,7 +13,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	rc "embly/api/pkg/rustcompile/proto"
+	rc "embly/pkg/rustcompile/proto"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"

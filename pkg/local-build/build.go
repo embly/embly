@@ -2,13 +2,13 @@ package localbuild
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
-	"embly/api/pkg/randy"
+	"embly/pkg/randy"
 	"fmt"
 	"io"
-	"log"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,28 +18,34 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/pkg/errors"
 	"github.com/segmentio/textio"
 	"github.com/sirupsen/logrus"
 )
 
-func Create() (err error) {
+var imageName = "maxmcd/embly-compile-rust-wasm"
+
+// Create ...
+func Create(fName, buildLocation, buildContext, destination string) (err error) {
 	var cli *client.Client
 	if cli, err = client.NewClientWithOpts(client.FromEnv); err != nil {
 		return
 	}
+	fmt.Println("building with: ", buildLocation, buildContext, destination)
+
+	ctx := context.Background()
 
 	tmpDir := fmt.Sprintf("/tmp/%s", randy.String())
-	ctx := context.Background()
-	cfg := container.Config{
-		Image: "maxmcd/embly-compile-rust-wasm",
-		Cmd:   strslice.StrSlice([]string{"sleep", "100"}),
-	}
-	hostConfig := container.HostConfig{}
-	networkingConfig := network.NetworkingConfig{}
-	containerName := "embly-rust-build"
+	containerName := "embly-rust-build" + fName
 
-	if _, err = cli.ContainerCreate(ctx, &cfg, &hostConfig, &networkingConfig, containerName); err != nil {
-		if !strings.Contains(err.Error(), "\"/embly-rust-build\" is already in use by container") {
+	if _, err = cli.ContainerCreate(ctx, &container.Config{
+		Image: "maxmcd/embly-compile-rust-wasm:clean",
+		Cmd:   strslice.StrSlice([]string{"sleep", "1000"}),
+	}, &container.HostConfig{
+		Binds: []string{buildContext + ":/opt/context"},
+	},
+		&network.NetworkingConfig{}, containerName); err != nil {
+		if !strings.Contains(err.Error(), "is already in use by container") {
 			return
 		}
 	}
@@ -62,43 +68,71 @@ func Create() (err error) {
 		return
 	}
 
-	toCopy := filesTar()
-	if err = cli.CopyToContainer(ctx, containerName, tmpDir,
-		&toCopy, types.CopyToContainerOptions{}); err != nil {
+	if err = cli.CopyToContainer(ctx, containerName, tmpDir, nil, types.CopyToContainerOptions{}); err != nil {
 		return
 	}
-	fmt.Println("hi")
+	var relLocation string
+	if relLocation, err = filepath.Rel(buildContext, buildLocation); err != nil {
+		return
+	}
+
+	outName := filepath.Base(destination)
 	if err = execInContainerAndWait(ctx, cli, containerName, []string{"bash", "-c", fmt.Sprintf(`
+set -x
 cd %s \
-&& cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir ./out \
-&& wasm-strip ./out/*.wasm \
-&& ls -lah ./out/*.wasm
-	`, tmpDir)}); err != nil {
+&& ls -lah \
+&& mkdir -p /opt/out \
+&& rm /opt/out/*.wasm || true \
+&& cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir /opt/out \
+&& wasm-strip /opt/out/*.wasm \
+&& ls -lah /opt/out/*.wasm \
+&& mv /opt/out/*.wasm /opt/out/%s || true
+	`, filepath.Join("/opt/context", relLocation), outName)}); err != nil {
+		err = errors.WithStack(err)
 		return
 	}
+
 	var tarWasmOut io.ReadCloser
-	if tarWasmOut, _, err = cli.CopyFromContainer(ctx, containerName, tmpDir+"/out/foo.wasm"); err != nil {
+	if tarWasmOut, _, err = cli.CopyFromContainer(ctx, containerName, "/opt/out/"+outName); err != nil {
 		return
 	}
 
 	tr := tar.NewReader(tarWasmOut)
+
+	tmpWasmFile, err := ioutil.TempFile("", "embly-wasm-out")
+	if err != nil {
+		return
+	}
+	defer os.Remove(tmpWasmFile.Name())
+	// todo: here should only be one file here, ensure that is the case
 	for {
-		hdr, err := tr.Next()
+		_, err := tr.Next()
 		if err == io.EOF {
 			break // End of archive
 		}
 		if err != nil {
 			return err
 		}
-		f, err := os.Create(hdr.Name)
+		f, err := os.Create(tmpWasmFile.Name())
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Contents of %s:\n", hdr.Name)
 		if _, err := io.Copy(f, tr); err != nil {
 			return err
 		}
-		fmt.Println()
+	}
+
+	bindingsLocation, err := writeBindingsFile()
+	defer os.Remove(bindingsLocation)
+	if err != nil {
+		fmt.Println("asdfasdfasasdfd")
+		return err
+	}
+
+	err = runLucetc(bindingsLocation, tmpWasmFile.Name(), destination)
+	if err != nil {
+		fmt.Println("asdfasdfasd")
+		return err
 	}
 
 	return
@@ -125,32 +159,5 @@ func execInContainerAndWait(ctx context.Context, cli *client.Client, containerNa
 		textio.NewPrefixWriter(os.Stdout, "stdout: "),
 		textio.NewPrefixWriter(os.Stderr, "stderr: "),
 		hr.Reader)
-	return
-}
-
-func filesTar() (buf bytes.Buffer) {
-	tw := tar.NewWriter(&buf)
-	var files = []struct {
-		Name, Body string
-	}{
-		{"src/main.rs", `fn main(){ println!("hi") }`},
-		{"Cargo.toml", "[package]\nname = \"foo\"\nversion = \"0.0.1\"\n[dependencies]\nembly=\"0.0.2\""},
-	}
-	for _, file := range files {
-		hdr := &tar.Header{
-			Name: file.Name,
-			Mode: 0600,
-			Size: int64(len(file.Body)),
-		}
-		if err := tw.WriteHeader(hdr); err != nil {
-			log.Fatal(err)
-		}
-		if _, err := tw.Write([]byte(file.Body)); err != nil {
-			log.Fatal(err)
-		}
-	}
-	if err := tw.Close(); err != nil {
-		log.Fatal(err)
-	}
 	return
 }

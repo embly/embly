@@ -6,10 +6,10 @@ import (
 	"mime/multipart"
 	"strings"
 
-	"embly/api/pkg/models"
-	"embly/api/pkg/routing"
+	"embly/pkg/models"
+	"embly/pkg/routing"
 
-	rc "embly/api/pkg/rustcompile/proto"
+	rc "embly/pkg/rustcompile/proto"
 
 	"github.com/getlantern/uuid"
 	"github.com/gin-gonic/gin"

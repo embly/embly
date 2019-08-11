@@ -6,11 +6,11 @@ import (
 
 	"context"
 	"database/sql"
-	"embly/api/pkg/cache"
-	"embly/api/pkg/config"
-	"embly/api/pkg/dbutil"
-	"embly/api/pkg/rustcompile"
-	rc "embly/api/pkg/rustcompile/proto"
+	"embly/pkg/cache"
+	"embly/pkg/config"
+	"embly/pkg/dbutil"
+	"embly/pkg/rustcompile"
+	rc "embly/pkg/rustcompile/proto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gomodule/redigo/redis"

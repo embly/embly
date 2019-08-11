@@ -3,7 +3,7 @@ package build
 import (
 	"path/filepath"
 
-	rc "embly/api/pkg/rustcompile/proto"
+	rc "embly/pkg/rustcompile/proto"
 )
 
 type projectFiles struct {
