@@ -1,2 +1,0 @@
-- https://github.com/mozilla/sccache
-- https://rust-lang.github.io/rustup-components-history/wasm32-wasi

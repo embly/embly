@@ -34,6 +34,7 @@ pub struct Message {
     pub data: ::std::vec::Vec<u8>,
     pub spawn: ::std::string::String,
     pub spawn_address: u64,
+    pub kill: bool,
     pub exit: i32,
     pub your_address: u64,
     pub parent_address: u64,
@@ -150,6 +151,21 @@ impl Message {
         self.spawn_address = v;
     }
 
+    // bool kill = 9;
+
+
+    pub fn get_kill(&self) -> bool {
+        self.kill
+    }
+    pub fn clear_kill(&mut self) {
+        self.kill = false;
+    }
+
+    // Param is passed by value, moved
+    pub fn set_kill(&mut self, v: bool) {
+        self.kill = v;
+    }
+
     // int32 exit = 6;
 
 
@@ -232,6 +248,13 @@ impl ::protobuf::Message for Message {
                     let tmp = is.read_uint64()?;
                     self.spawn_address = tmp;
                 },
+                9 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeVarint {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    let tmp = is.read_bool()?;
+                    self.kill = tmp;
+                },
                 6 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
                         return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
@@ -280,6 +303,9 @@ impl ::protobuf::Message for Message {
         if self.spawn_address != 0 {
             my_size += ::protobuf::rt::value_size(5, self.spawn_address, ::protobuf::wire_format::WireTypeVarint);
         }
+        if self.kill != false {
+            my_size += 2;
+        }
         if self.exit != 0 {
             my_size += ::protobuf::rt::value_size(6, self.exit, ::protobuf::wire_format::WireTypeVarint);
         }
@@ -309,6 +335,9 @@ impl ::protobuf::Message for Message {
         }
         if self.spawn_address != 0 {
             os.write_uint64(5, self.spawn_address)?;
+        }
+        if self.kill != false {
+            os.write_bool(9, self.kill)?;
         }
         if self.exit != 0 {
             os.write_int32(6, self.exit)?;
@@ -386,6 +415,11 @@ impl ::protobuf::Message for Message {
                     |m: &Message| { &m.spawn_address },
                     |m: &mut Message| { &mut m.spawn_address },
                 ));
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBool>(
+                    "kill",
+                    |m: &Message| { &m.kill },
+                    |m: &mut Message| { &mut m.kill },
+                ));
                 fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeInt32>(
                     "exit",
                     |m: &Message| { &m.exit },
@@ -428,6 +462,7 @@ impl ::protobuf::Clear for Message {
         self.data.clear();
         self.spawn.clear();
         self.spawn_address = 0;
+        self.kill = false;
         self.exit = 0;
         self.your_address = 0;
         self.parent_address = 0;
@@ -448,13 +483,14 @@ impl ::protobuf::reflect::ProtobufValue for Message {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0bcomms.proto\x12\x05comms\"\xda\x01\n\x07Message\x12\x0e\n\x02to\
+    \n\x0bcomms.proto\x12\x05comms\"\xee\x01\n\x07Message\x12\x0e\n\x02to\
     \x18\x01\x20\x01(\x04R\x02to\x12\x12\n\x04from\x18\x02\x20\x01(\x04R\x04\
     from\x12\x12\n\x04data\x18\x03\x20\x01(\x0cR\x04data\x12\x14\n\x05spawn\
     \x18\x04\x20\x01(\tR\x05spawn\x12#\n\rspawn_address\x18\x05\x20\x01(\x04\
-    R\x0cspawnAddress\x12\x12\n\x04exit\x18\x06\x20\x01(\x05R\x04exit\x12!\n\
-    \x0cyour_address\x18\x07\x20\x01(\x04R\x0byourAddress\x12%\n\x0eparent_a\
-    ddress\x18\x08\x20\x01(\x04R\rparentAddressb\x06proto3\
+    R\x0cspawnAddress\x12\x12\n\x04kill\x18\t\x20\x01(\x08R\x04kill\x12\x12\
+    \n\x04exit\x18\x06\x20\x01(\x05R\x04exit\x12!\n\x0cyour_address\x18\x07\
+    \x20\x01(\x04R\x0byourAddress\x12%\n\x0eparent_address\x18\x08\x20\x01(\
+    \x04R\rparentAddressb\x06proto3\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {

@@ -4,5 +4,5 @@ steps:
       - --cache=true
       - --cache-ttl=60h
       - --destination=gcr.io/media-9x16/embly-api-test
-      - --dockerfile=/workspace/tools/api-test.Dockerfile
+      - --dockerfile=/workspace/tools/go-test.Dockerfile
       - --context=/workspace/

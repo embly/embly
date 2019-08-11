@@ -1,6 +1,0 @@
-[psql]
-  dbname  = "postgres"
-  host    = "postgres"
-  user    = "postgres"
-  pass    = "postgres" 
-  sslmode = "disable"
