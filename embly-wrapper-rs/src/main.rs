@@ -145,6 +145,7 @@ struct EmblyCtx {
     read_buffers: HashMap<i32, VecDeque<Message>>,
     address_count: i32,
     address: u64,
+    parent_address: u64,
     pending_events: Vec<i32>,
 }
 
@@ -153,7 +154,7 @@ impl EmblyCtx {
         receiver: Receiver<Message>,
         stream_writer: UnixStream,
         address: u64,
-        master: u64,
+        parent_address: u64,
     ) -> Self {
         let address_map = BidirectionalMap::new();
         let mut ctx = Self {
@@ -161,11 +162,12 @@ impl EmblyCtx {
             stream_writer,
             address_map,
             address,
+            parent_address,
             address_count: 0,
             read_buffers: HashMap::new(),
             pending_events: Vec::new(),
         };
-        ctx.add_address(master);
+        ctx.add_address(parent_address);
         ctx
     }
 
@@ -276,7 +278,7 @@ impl EmblyCtx {
     fn spawn(&mut self, name: &str) -> Result<i32> {
         let mut msg = Message::new();
         msg.set_spawn(name.to_string());
-        msg.set_to(1);
+        msg.set_to(self.parent_address);
         msg.set_from(self.address);
 
         let spawn_addr = rand::random::<u64>();
@@ -299,6 +301,7 @@ impl EmblyCtx {
         msg.set_exit(code);
         self.write_msg(msg)
     }
+
     fn write_msg(&mut self, msg: Message) -> Result<()> {
         write_msg(&mut self.stream_writer, msg)
     }
@@ -381,12 +384,9 @@ fn main() -> Result<()> {
         panic!("addr doesn't match {} {}", addr, msg.your_address)
     }
 
-    let embly_ctx = EmblyCtx::new(
-        receiver,
-        stream_writer,
-        msg.your_address,
-        msg.parent_address,
-    );
+    let parent_address = msg.parent_address;
+    let your_address = msg.your_address;
+    let embly_ctx = EmblyCtx::new(receiver, stream_writer, your_address, parent_address);
 
     let mut inst = region
         .new_instance_builder(module as Arc<dyn Module>)
@@ -407,6 +407,9 @@ fn main() -> Result<()> {
 
     let mut msg = Message::new();
     msg.exit = exit_code as i32; //todo: u32
+    msg.exiting = true;
+    msg.from = parent_address;
+    msg.to = parent_address;
     write_msg(&mut stream_closer, msg)?;
     Ok(())
 }

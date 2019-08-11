@@ -1,0 +1,6 @@
+- support more complex 'events' listening behavior
+- shutting down and cleaning up
+- error handling everywhere
+- log capture and stdout
+- remaining syscalls and safe wasi calls
+- better test coverage and integration tests

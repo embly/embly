@@ -41,7 +41,6 @@ use std::time;
 pub mod error;
 pub mod http;
 
-use std::collections::HashMap;
 use std::sync::Mutex;
 #[macro_use]
 extern crate lazy_static;
@@ -205,7 +204,7 @@ fn spawn(name: &str) -> Result<i32> {
 fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>> {
     let mut ln: i32 = 0;
     let ln_ptr: *mut i32 = &mut ln;
-    let mut out: [i32; 10] = [0; 10];
+    let out: [i32; 10] = [0; 10];
     let mut timeout_s: u64 = 0;
     let mut timeout_ns: u32 = 0;
     let mut non_blocking: u8 = 0;

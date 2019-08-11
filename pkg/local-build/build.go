@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,7 +32,7 @@ func Create(fName, buildLocation, buildContext, destination string) (err error) 
 	if cli, err = client.NewClientWithOpts(client.FromEnv); err != nil {
 		return
 	}
-	fmt.Println("building with: ", buildLocation, buildContext, destination)
+	log.Println("building with: ", buildLocation, buildContext, destination)
 
 	ctx := context.Background()
 
@@ -125,13 +126,11 @@ cd %s \
 	bindingsLocation, err := writeBindingsFile()
 	defer os.Remove(bindingsLocation)
 	if err != nil {
-		fmt.Println("asdfasdfasasdfd")
 		return err
 	}
 
 	err = runLucetc(bindingsLocation, tmpWasmFile.Name(), destination)
 	if err != nil {
-		fmt.Println("asdfasdfasd")
 		return err
 	}
 

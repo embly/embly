@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
+	"log"
 	"net/http"
 	"testing"
 )
@@ -18,5 +18,5 @@ hello`))
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println(resp)
+	log.Println(resp)
 }

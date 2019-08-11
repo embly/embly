@@ -1,5 +1,5 @@
 workflow "New workflow" {
-  on = "push"
+  on       = "push"
   resolves = ["GitHub Action for Docker"]
 }
 

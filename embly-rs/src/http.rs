@@ -102,12 +102,16 @@ impl io::Write for ResponseWriter {
         self.write_buf.write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
+        // quick extra allocation for now to ensure flush makes one write call with
+        // all bytes
+        let mut out = Vec::new();
         if !self.headers_writen {
             let dst = &self.write_headers();
-            self.body.write_all(dst)?;
+            &out.write_all(dst)?;
         }
-        self.body.write_all(&self.write_buf)?;
-        self.write_buf.clear(); // is this ok? does this retain capacity?
+        &out.write_all(&self.write_buf)?;
+        self.body.write_all(&out)?;
+        self.write_buf.clear();
         Ok(())
     }
 }

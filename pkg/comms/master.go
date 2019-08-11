@@ -19,7 +19,8 @@ import (
 )
 
 type Master struct {
-	registry map[uint64]funcOrGateway
+	functions map[string]string
+	registry  map[uint64]funcOrGateway
 }
 
 type funcOrGateway interface {
@@ -28,17 +29,13 @@ type funcOrGateway interface {
 
 func NewMaster() *Master {
 	return &Master{
-		registry: make(map[uint64]funcOrGateway),
+		registry:  make(map[uint64]funcOrGateway),
+		functions: make(map[string]string),
 	}
 }
 
+// SockAddr is the location of the embly unix socket
 const SockAddr = "/tmp/embly.sock"
-
-func echoServer(c net.Conn) {
-	log.Printf("Client connected [%s]", c.RemoteAddr().Network())
-	io.Copy(c, c)
-	c.Close()
-}
 
 func prepareMsg(msg comms_proto.Message) (b []byte, err error) {
 	b, err = proto.Marshal(&msg)
@@ -82,12 +79,11 @@ func (p *consumer) nextMessage() (msg comms_proto.Message, err error) {
 }
 
 type Function struct {
-	addr      uint64
-	parent    uint64
-	cmd       *exec.Cmd
-	conn      net.Conn
-	connWait  sync.WaitGroup
-	writeLock sync.Mutex
+	addr     uint64
+	parent   uint64
+	cmd      *exec.Cmd
+	conn     net.Conn
+	connWait sync.WaitGroup
 }
 
 func (fn *Function) RegisterConn(conn net.Conn) {
@@ -142,21 +138,31 @@ func (m *Master) NewGateway() *Gateway {
 	m.registry[id] = gat
 	return gat
 }
+
 func (gat *Gateway) AttachFn(fn *Function) {
 	gat.child = fn.addr
 }
 
-func (gat *Gateway) Read(b []byte) (ln int, err error) {
+func (gat *Gateway) Wait() {
 	gat.readCond.L.Lock()
 	if gat.buf.Len() == 0 {
 		gat.readCond.Wait()
 	}
 	gat.readCond.L.Unlock()
+}
+
+func (get *Gateway) Bytes() (b []byte) {
+	b = get.buf.Bytes()
+	get.buf.Reset()
+	return b
+}
+func (gat *Gateway) Read(b []byte) (ln int, err error) {
+	gat.Wait()
 	return gat.buf.Read(b)
 }
 
 func (gat *Gateway) Write(b []byte) (ln int, err error) {
-	fmt.Println("Write from ", gat.ID, "to", gat.child)
+	log.Println("Write from ", gat.ID, "to", gat.child)
 	fn := gat.master.registry[gat.child]
 	msg := comms_proto.Message{
 		To:   gat.child,
@@ -179,11 +185,24 @@ func (fn *Function) Start() (err error) {
 	return fn.cmd.Start()
 }
 
-func (m *Master) NewFunction(location string, parent uint64) (fn *Function) {
-	fn = &Function{addr: rand.Uint64()}
+func (m *Master) RegisterFunctionName(name, location string) {
+	m.functions[name] = location
+}
+
+func (m *Master) SpawnFunction(name string, parent uint64, addr uint64) {
+	fn := m.NewFunction(m.functions[name], parent, &addr)
+	fn.Start()
+}
+
+func (m *Master) NewFunction(location string, parent uint64, addr *uint64) (fn *Function) {
+	if addr == nil {
+		v := rand.Uint64()
+		addr = &v
+	}
+	fn = &Function{addr: *addr}
 	fn.connWait.Add(1)
 	cmd := exec.Command("embly-wrapper-rs")
-	fmt.Println("NewFunction location", location)
+	log.Println("NewFunction location", location)
 	cmd.Stdout = textio.NewPrefixWriter(os.Stdout, "embly stdout: ")
 	cmd.Stderr = textio.NewPrefixWriter(os.Stderr, "embly stderr: ")
 	cmd.Env = envVars(map[string]string{
@@ -225,11 +244,20 @@ func (m *Master) Start() {
 				if err == io.EOF {
 					return
 				}
-			} else {
-				fmt.Printf("got message %#v\n", msg)
-				recFn := m.registry[msg.To]
-				recFn.SendMsg(msg)
+				continue
 			}
+
+			log.Printf("got message %#v\n", msg)
+			if msg.Spawn != "" {
+				m.SpawnFunction(msg.Spawn, msg.From, msg.SpawnAddress)
+				continue
+			}
+			// TODO: security: allows one to communicate with any function
+			recFn := m.registry[msg.To]
+			if recFn == nil {
+				log.Fatal("fn not found for id ", msg.To)
+			}
+			recFn.SendMsg(msg)
 		}
 	})
 }
@@ -242,7 +270,7 @@ func (m *Master) unixListen(handler func(net.Conn)) (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println("listening on " + SockAddr)
+	log.Println("listening on " + SockAddr)
 	for {
 		conn, err := l.Accept()
 		if err != nil {

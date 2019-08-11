@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -14,6 +16,7 @@ import (
 
 	"embly/pkg/comms"
 	localbuild "embly/pkg/local-build"
+	"embly/pkg/proxy"
 
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
@@ -70,8 +73,9 @@ func (pg *projectGateway) getFunction(emblyCtx *emblyBinContext) projectFunction
 }
 
 func main() {
+	log.SetFlags(log.Llongfile | log.LstdFlags)
 	if err := runMain(); err != nil {
-		fmt.Println("Error running embly: ", err)
+		log.Println("Error running embly: ", err)
 		os.Exit(1)
 	}
 }
@@ -97,21 +101,18 @@ func runMain() (err error) {
 	return nil
 }
 
-var f *flags
-
 func (emblyCtx *emblyBinContext) parseFlags() {
 	emblyCtx.flags = &flags{}
-	f = emblyCtx.flags
 
 	flag.BoolVar(&emblyCtx.flags.verbose, "v", false, "enable verbose logging")
 	flag.BoolVar(&emblyCtx.flags.help, "h", false, "pring this message")
 	flag.BoolVar(&emblyCtx.flags.debug, "d", false, "print stdout and stderr from wasm")
+	flag.StringVar(&emblyCtx.flags.emblyProjectFile, "f", "", "specify the embly project file")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) != 0 {
 		emblyCtx.flags.command = args[0]
 	}
-	return
 }
 
 func (emblyCtx *emblyBinContext) printUsage() {
@@ -154,7 +155,7 @@ func (emblyCtx *emblyBinContext) buildFunctions() (err error) {
 
 	emblyCtx.functionRegistry = make(map[string]projectFunction)
 	for i, fn := range emblyCtx.project.Functions {
-		fmt.Println("building function with name", fn.Name)
+		log.Println("building function with name", fn.Name)
 		buildContext := filepath.Join(emblyCtx.projectRoot, fn.Context)
 		buildLocation := filepath.Join(buildContext, fn.Path)
 		wasmLocation := filepath.Join(emblyBuildDir, fn.Name+".out")
@@ -164,73 +165,59 @@ func (emblyCtx *emblyBinContext) buildFunctions() (err error) {
 		fn.module = wasmLocation
 		emblyCtx.project.Functions[i] = fn
 		emblyCtx.functionRegistry[fn.Name] = fn
-		fmt.Println(emblyCtx.functionRegistry)
+		emblyCtx.master.RegisterFunctionName(fn.Name, wasmLocation)
+		log.Println(emblyCtx.functionRegistry)
 	}
 	return nil
-}
-
-type contextdata struct {
-	contextID int
-}
-
-// TODO. this should might be the content of our wire messages between function and master
-type functionMessage struct {
-	data []byte
-	id   int
-	fn   string
-}
-
-type funcContextData struct {
-	commGroup CommGroup
-	commMap   map[int]int
-	ebc       *emblyBinContext
-}
-
-func (emblyCtx *emblyBinContext) spawnInstance(name string, id int, commGroup CommGroup) {
-	fmt.Println("spawning instance with name", name, id)
 }
 
 func (emblyCtx *emblyBinContext) launchHTTPGateway(g projectGateway) (err error) {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", g.Port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Println("request", r)
+			log.Println("request", r)
 
 			masterG := emblyCtx.master.NewGateway()
 			fn := g.getFunction(emblyCtx)
-			masterFn := emblyCtx.master.NewFunction(fn.module, masterG.ID)
+			masterFn := emblyCtx.master.NewFunction(fn.module, masterG.ID, nil)
 			masterG.AttachFn(masterFn)
 			if err := masterFn.Start(); err != nil {
 				log.Fatal(err)
 			}
-			// out, err := proxy.DumpRequest(r)
-
-			// resp, err := http.ReadResponse(bufio.NewReader(bytes.NewBuffer(b)), r)
-			// if err != nil {
-			// 	w.WriteHeader(500)
-			// 	w.Write([]byte(err.Error()))
-			// }
-			// w.WriteHeader(resp.StatusCode)
-			// for k, vs := range resp.Header {
-			// 	for _, v := range vs {
-			// 		w.Header().Add(k, v)
-			// 	}
-			// }
-			// io.Copy(w, resp.Body)
+			out, err := proxy.DumpRequest(r)
+			if err != nil {
+				w.WriteHeader(500)
+				w.Write([]byte(err.Error()))
+			}
+			masterG.Write(out)
+			masterG.Wait()
+			b := masterG.Bytes()
+			resp, err := http.ReadResponse(bufio.NewReader(bytes.NewBuffer(b)), r)
+			if err != nil {
+				w.WriteHeader(500)
+				w.Write([]byte(err.Error()))
+			}
+			w.WriteHeader(resp.StatusCode)
+			for k, vs := range resp.Header {
+				for _, v := range vs {
+					w.Header().Add(k, v)
+				}
+			}
+			io.Copy(w, resp.Body)
 		}),
 	}
-	fmt.Printf("HTTP gateway '%s' listening on port %d\n", g.Name, g.Port)
+	log.Printf("HTTP gateway '%s' listening on port %d\n", g.Name, g.Port)
 	go server.ListenAndServe()
 	return nil
 }
 
 func (emblyCtx *emblyBinContext) handleTCPConn(conn net.Conn, g projectGateway) (err error) {
-	fmt.Println("new tcp conn for", g.Name)
+	log.Println("new tcp conn for", g.Name)
 
 	// TODO: so fragile!
 	masterG := emblyCtx.master.NewGateway()
 	fn := g.getFunction(emblyCtx)
-	masterFn := emblyCtx.master.NewFunction(fn.module, masterG.ID)
+	masterFn := emblyCtx.master.NewFunction(fn.module, masterG.ID, nil)
 	masterG.AttachFn(masterFn)
 
 	if err := masterFn.Start(); err != nil {
@@ -247,12 +234,12 @@ func (emblyCtx *emblyBinContext) launchTCPGateway(g projectGateway) (err error) 
 	if err != nil {
 		return err
 	}
-	fmt.Printf("TCP gateway '%s' listening on port %d\n", g.Name, g.Port)
+	log.Printf("TCP gateway '%s' listening on port %d\n", g.Name, g.Port)
 	go func() {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				fmt.Println("Got error accepting on ", g.Name, err)
+				log.Println("Got error accepting on ", g.Name, err)
 			}
 			go emblyCtx.handleTCPConn(conn, g)
 		}
