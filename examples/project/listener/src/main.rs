@@ -7,7 +7,7 @@ use std::io::Read;
 use std::io::Write;
 
 fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
-    let mut hello = embly::Function::spawn("hello")?;
+    let mut hello = embly::spawn_function("hello")?;
     let mut buffer = Vec::new();
     hello.wait();
     hello.read_to_end(&mut buffer)?;
@@ -18,6 +18,7 @@ fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
     w.header("Content-Type", "text/plain")?;
     Ok(())
 }
+
 fn main() -> Result<()> {
     http::run(execute)
 }

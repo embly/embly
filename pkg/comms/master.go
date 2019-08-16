@@ -18,6 +18,7 @@ import (
 	"github.com/segmentio/textio"
 )
 
+// Master is the central coordinator for embly functions
 type Master struct {
 	functions map[string]string
 	registry  map[uint64]funcOrGateway
@@ -27,6 +28,7 @@ type funcOrGateway interface {
 	SendMsg(comms_proto.Message)
 }
 
+// NewMaster creates a new master
 func NewMaster() *Master {
 	return &Master{
 		registry:  make(map[uint64]funcOrGateway),
@@ -78,6 +80,7 @@ func (p *consumer) nextMessage() (msg comms_proto.Message, err error) {
 	return
 }
 
+// Function handles the state and connection for an embly function
 type Function struct {
 	addr     uint64
 	parent   uint64
@@ -86,15 +89,18 @@ type Function struct {
 	connWait sync.WaitGroup
 }
 
+// RegisterConn registers a unix socket connection for this conn
 func (fn *Function) RegisterConn(conn net.Conn) {
 	fn.conn = conn
 	fn.connWait.Done()
 }
 
+// HasConnOrWait will wait if there isn't a connection associated with this function yet
 func (fn *Function) HasConnOrWait() {
 	fn.connWait.Wait()
 }
 
+// SendMsg sends a protobuf Message to this function
 func (fn *Function) SendMsg(msg comms_proto.Message) {
 	fn.HasConnOrWait()
 	b, err := prepareMsg(msg)
@@ -106,6 +112,7 @@ func (fn *Function) SendMsg(msg comms_proto.Message) {
 	fn.conn.Write(b)
 }
 
+// SendMsg sends a protobuf Message to this gateway
 func (gat *Gateway) SendMsg(msg comms_proto.Message) {
 	if msg.Exit != 0 {
 		log.Fatal("unimplemented")
@@ -117,6 +124,7 @@ func (gat *Gateway) SendMsg(msg comms_proto.Message) {
 	gat.readCond.Broadcast()
 }
 
+// A Gateway is a way for a function to communicate with the outside world
 type Gateway struct {
 	ID       uint64
 	buf      bytes.Buffer
@@ -126,6 +134,7 @@ type Gateway struct {
 	msgChan  chan comms_proto.Message
 }
 
+// NewGateway creates a new gateway
 func (m *Master) NewGateway() *Gateway {
 	id := rand.Uint64()
 	mu := sync.Mutex{}
@@ -139,10 +148,12 @@ func (m *Master) NewGateway() *Gateway {
 	return gat
 }
 
+// AttachFn attaches a function to this gateway
 func (gat *Gateway) AttachFn(fn *Function) {
 	gat.child = fn.addr
 }
 
+// Wait waits for bytes to be available to be read from the gateway
 func (gat *Gateway) Wait() {
 	gat.readCond.L.Lock()
 	if gat.buf.Len() == 0 {
@@ -151,11 +162,13 @@ func (gat *Gateway) Wait() {
 	gat.readCond.L.Unlock()
 }
 
-func (get *Gateway) Bytes() (b []byte) {
-	b = get.buf.Bytes()
-	get.buf.Reset()
+// Bytes dumps all available bytes from the gateway
+func (gat *Gateway) Bytes() (b []byte) {
+	b = gat.buf.Bytes()
+	gat.buf.Reset()
 	return b
 }
+
 func (gat *Gateway) Read(b []byte) (ln int, err error) {
 	gat.Wait()
 	return gat.buf.Read(b)
@@ -181,19 +194,23 @@ func envVars(values map[string]string) (out []string) {
 	return
 }
 
+// Start starts a functions process
 func (fn *Function) Start() (err error) {
 	return fn.cmd.Start()
 }
 
+// RegisterFunctionName takes an object file location and a function name for future reference
 func (m *Master) RegisterFunctionName(name, location string) {
 	m.functions[name] = location
 }
 
+// SpawnFunction creates a starts a function with a provided address
 func (m *Master) SpawnFunction(name string, parent uint64, addr uint64) {
 	fn := m.NewFunction(m.functions[name], parent, &addr)
 	fn.Start()
 }
 
+// NewFunction creates and initializes a new function, it doesn't start until function.Start is run
 func (m *Master) NewFunction(location string, parent uint64, addr *uint64) (fn *Function) {
 	if addr == nil {
 		v := rand.Uint64()
@@ -201,7 +218,7 @@ func (m *Master) NewFunction(location string, parent uint64, addr *uint64) (fn *
 	}
 	fn = &Function{addr: *addr}
 	fn.connWait.Add(1)
-	cmd := exec.Command("embly-wrapper-rs")
+	cmd := exec.Command("embly-wrapper")
 	log.Println("NewFunction location", location)
 	cmd.Stdout = textio.NewPrefixWriter(os.Stdout, "embly stdout: ")
 	cmd.Stderr = textio.NewPrefixWriter(os.Stderr, "embly stderr: ")
@@ -209,6 +226,7 @@ func (m *Master) NewFunction(location string, parent uint64, addr *uint64) (fn *
 		"EMBLY_ADDR":     fmt.Sprintf("%d", fn.addr),
 		"EMBLY_MODULE":   location,
 		"RUST_BACKTRACE": "1",
+		"RUST_LOG":       "embly_wrapper",
 	})
 	fn.cmd = cmd
 	fn.parent = parent
@@ -240,10 +258,10 @@ func (m *Master) Start() {
 		for {
 			msg, err := c.nextMessage()
 			if err != nil {
-				log.Println(err)
 				if err == io.EOF {
 					return
 				}
+				log.Println(err)
 				continue
 			}
 

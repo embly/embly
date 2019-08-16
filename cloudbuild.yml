@@ -3,6 +3,11 @@ steps:
     args:
       - --cache=true
       - --cache-ttl=60h
-      - --destination=gcr.io/media-9x16/embly-api-test
+      - --destination=gcr.io/media-9x16/embly-go-test
       - --dockerfile=/workspace/tools/go-test.Dockerfile
       - --context=/workspace/
+  - name: "gcr.io/cloud-builders/docker"
+    waitFor: ["-"] # parallel
+    args: ["build", "-f", "/workspace/tools/rust-test.Dockerfile", "."]
+options:
+  machineType: "N1_HIGHCPU_8"

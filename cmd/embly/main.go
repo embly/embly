@@ -46,11 +46,11 @@ type emblyProject struct {
 }
 
 type projectFunction struct {
-	Name    string `json:"name" validate:"required"`
-	Path    string `json:"path" validate:"required"`
-	Context string `json:"context"`
-	Runtime string `json:"runtime" validate:"required"`
-	module  string
+	Name     string `json:"name" validate:"required"`
+	Path     string `json:"path" validate:"required"`
+	Context  string `json:"context"`
+	Language string `json:"language" validate:"required"`
+	module   string
 }
 
 type projectGateway struct {

@@ -15,7 +15,7 @@ cd ../../
 
 cd embly-wrapper-rs
 cargo build --release
-mv ../target/release/embly-wrapper-rs $HOME/.cargo/bin
+mv ../target/release/embly-wrapper $HOME/.cargo/bin
 
 cd ../examples/project
 

@@ -1,1 +1,3 @@
-fn main(){ println!("hi") }
+fn main() {
+    println!("hi")
+}

@@ -2,15 +2,15 @@ functions:
   - name: hello
     path: ./examples/project/hello
     context: ./../.. # todo: let's find a better way to do this
-    runtime: rust
+    language: rust
   - name: echo
     path: ./examples/project/echo
     context: ./../.. # todo: let's find a better way to do this
-    runtime: rust
+    language: rust
   - name: listener
     path: ./examples/project/listener
     context: ./../..
-    runtime: rust
+    language: rust
 gateways:
   - name: index
     type: http

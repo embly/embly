@@ -1,24 +1,48 @@
+//! Tools for running http embly functions
+//!
+//! Use the http module to run functions that expect to recieve an http
+//! response body and return an http response.
+//!
+//! ```no_run
+//! use embly::Result;
+//! use embly::http::{run, Body, Request, ResponseWriter};
+//! use std::io::Write;
+//!
+//! fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
+//!     w.write("hello world\n".as_bytes())?;
+//!     w.status("200")?;
+//!     w.header("Content-Length", "12")?;
+//!     w.header("Content-Type", "text/plain")?;
+//!     Ok(())
+//! }
+//!
+//! fn main() -> Result<()> {
+//!     run(execute)
+//! }
+//! ```
+
 use crate::error::{Error, Result};
-use crate::Comm;
+use crate::Conn;
 use http;
 use http::header::{HeaderName, HeaderValue};
 use http::response::Parts;
 use http::status::StatusCode;
 use http::HttpTryFrom;
-use http::{Request as HRequest, Response as HResponse};
+pub use http::Request;
+pub use http::Response;
 use httparse;
 use std::io;
 use std::io::Read;
 use std::io::Write;
 
-pub type Request<T> = HRequest<T>;
-pub type Response<T> = HResponse<T>;
-
+/// An http body
 pub struct Body {
     read_buf: Vec<u8>,
-    comm: Comm,
+    conn: Conn,
 }
 
+/// An http response writer. Used to write an http response, can either be used to write
+/// a complete response, or stream a response
 pub struct ResponseWriter {
     body: Body,
     parts: Parts,
@@ -30,7 +54,7 @@ impl ResponseWriter {
     fn new(body: Body) -> Self {
         let (p, _) = Response::new(()).into_parts();
         Self {
-            body: body,
+            body,
             headers_writen: false,
             parts: p,
             write_buf: Vec::new(),
@@ -64,6 +88,7 @@ impl ResponseWriter {
         extend(&mut dst, b"\r\n");
         dst
     }
+    /// add a header to this response
     pub fn header<K, V>(&mut self, key: K, value: V) -> Result<()>
     where
         HeaderName: HttpTryFrom<K>,
@@ -80,6 +105,7 @@ impl ResponseWriter {
             Err(e) => Err(Error::Http(e.into())),
         }
     }
+    /// set the http status for the response
     pub fn status<T>(&mut self, status: T) -> Result<()>
     where
         StatusCode: HttpTryFrom<T>,
@@ -107,9 +133,9 @@ impl io::Write for ResponseWriter {
         let mut out = Vec::new();
         if !self.headers_writen {
             let dst = &self.write_headers();
-            &out.write_all(dst)?;
+            out.write_all(dst)?;
         }
-        &out.write_all(&self.write_buf)?;
+        out.write_all(&self.write_buf)?;
         self.body.write_all(&out)?;
         self.write_buf.clear();
         Ok(())
@@ -123,22 +149,22 @@ fn extend(dst: &mut Vec<u8>, data: &[u8]) {
 
 impl io::Read for Body {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if self.read_buf.len() > 0 {
+        if !self.read_buf.is_empty() {
             let ln = (&self.read_buf[..]).read(buf)?;
             self.read_buf.truncate(self.read_buf.len() - ln);
             Ok(ln)
         } else {
-            self.comm.read(buf)
+            self.conn.read(buf)
         }
     }
 }
 
 impl io::Write for Body {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        // todo: we're not just writing back to comm here
+        // todo: we're not just writing back to connection here
         // when we write to this message we're writing the
         // body so we need to be sure
-        self.comm.write(buf)
+        self.conn.write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
         // this might start a chunked response
@@ -146,8 +172,8 @@ impl io::Write for Body {
     }
 }
 
-fn build_request_from_comm(c: Comm) -> Result<Request<Body>> {
-    c.wait();
+fn build_request_from_comm(c: Conn) -> Result<Request<Body>> {
+    c.wait()?;
     reader_to_request(c)
 }
 
@@ -177,25 +203,44 @@ fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>> {
     }
     // todo: reserve correct header capacity
     for h in &headers {
-        if h.name.len() == 0 && h.value.len() == 0 {
+        if h.name.is_empty() && h.value.is_empty() {
             break;
         }
         request.header(h.name, h.value);
     }
     Ok(request.body(Body {
-        comm: Comm { id: 0 },
+        conn: Conn { id: 0 },
         read_buf: buf[res.unwrap()..].to_vec(),
     })?)
 }
 
+/// Run an http handler Function
+///
+/// ```no_run
+/// use embly::Result;
+/// use embly::http::{run,Body, Request, ResponseWriter};
+/// use std::io::Write;
+///
+/// fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
+///     w.write("hello world\n".as_bytes())?;
+///     w.status("200")?;
+///     w.header("Content-Length", "12")?;
+///     w.header("Content-Type", "text/plain")?;
+///     Ok(())
+/// }
+///
+/// fn main() -> Result<()> {
+///     run(execute)
+/// }
+/// ```
 pub fn run(to_run: fn(Request<Body>, &mut ResponseWriter) -> Result<()>) -> Result<()> {
     println!("running http func");
 
-    let comm_id = 1;
-    let c = Comm { id: comm_id };
+    let function_id = 1;
+    let c = Conn { id: function_id };
     let r = build_request_from_comm(c)?;
     let mut resp = ResponseWriter::new(Body {
-        comm: Comm { id: comm_id },
+        conn: Conn { id: function_id },
         read_buf: Vec::new(),
     });
     to_run(r, &mut resp)?;
@@ -209,8 +254,8 @@ mod tests {
 
     #[test]
     fn basic_parse() {
-        let b = "hello".as_bytes();
-        let e = reader_to_request(b).err().unwrap();
+        let b = "hello";
+        let e = reader_to_request(b.as_bytes()).err().unwrap();
         match e {
             Error::InvalidHttpRequest => {}
             _ => panic!("{:?} should have recieved an invalid http request error", e),
@@ -231,14 +276,14 @@ Host: foo.example
 Content-Type: application/x-www-form-urlencoded
 Content-Length: 27
 
-field1=value1&field2=value2"
-            .as_bytes();
-        let mut request = reader_to_request(b)?;
+field1=value1&field2=value2";
+        let mut request = reader_to_request(b.as_bytes())?;
         let body = request.body_mut();
 
         let mut b: Vec<u8> = Vec::new();
         body.read_to_end(&mut b)?;
-        assert_eq!(b, "field1=value1&field2=value2".as_bytes());
+        let values = "field1=value1&field2=value2";
+        assert_eq!(b, values.as_bytes());
         Ok(())
     }
 

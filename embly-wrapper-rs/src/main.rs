@@ -12,11 +12,13 @@ use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 use std::{cmp, env, thread, time};
 
+use log::debug;
 use lucet_runtime::lucet_hostcalls;
+use lucet_runtime::vmctx::Vmctx;
 use lucet_runtime::{DlModule, Limits, MmapRegion, Module, Region};
 use lucet_runtime_internals::module::ModuleInternal;
 use lucet_runtime_internals::val;
-use lucet_wasi::{memory, wasm32, WasiCtxBuilder};
+use lucet_wasi::{host, memory, wasm32, WasiCtxBuilder};
 use std::ffi::OsStr;
 use std::os::unix::prelude::OsStrExt;
 
@@ -52,8 +54,90 @@ fn u64_as_u8_le(x: u64) -> [u8; 8] {
     ]
 }
 
-lucet_hostcalls! {
+fn _read(
+    vmctx: &mut Vmctx,
+    id: wasm32::uintptr_t,
+    payload: wasm32::uintptr_t,
+    payload_len: wasm32::uintptr_t,
+    ln: wasm32::uintptr_t,
+) -> Result<()> {
+    let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
+    let bytes = memory::dec_slice_of_mut::<u8>(vmctx, payload as u32, payload_len as u32)?;
+    let read = ctx
+        .read(id as i32, bytes)
+        .expect("should have been able to read");
+    memory::enc_usize_byref(vmctx, ln, read).expect("should enc read byref");
+    Ok(())
+}
 
+fn _write(
+    vmctx: &mut Vmctx,
+    id: wasm32::uintptr_t,
+    payload: wasm32::uintptr_t,
+    payload_len: wasm32::uintptr_t,
+    ln: wasm32::uintptr_t,
+) -> Result<()> {
+    let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
+    let bytes = memory::dec_slice_of::<u8>(vmctx, payload as u32, payload_len as u32)?;
+    let written = ctx.write(id as i32, bytes)?;
+    memory::enc_usize_byref(vmctx, ln, written)?;
+    debug!(
+        "__write {:?}",
+        (ctx.address, ctx.address_count, id, payload, payload_len, ln)
+    );
+    Ok(())
+}
+
+fn _spawn(
+    vmctx: &mut Vmctx,
+    name: wasm32::uintptr_t,
+    name_len: wasm32::uintptr_t,
+    id: wasm32::uintptr_t,
+) -> Result<()> {
+    let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
+    let name = OsStr::from_bytes(memory::dec_slice_of::<u8>(
+        vmctx,
+        name as u32,
+        name_len as u32,
+    )?);
+    debug!("__spawn call {:?}", (name));
+    let addr = ctx.spawn(name.to_str().unwrap())?;
+    memory::enc_usize_byref(vmctx, id, addr as usize)?;
+    Ok(())
+}
+
+fn _events(
+    vmctx: &mut Vmctx,
+    non_blocking: wasm32::uint8_t,
+    timeout_s: wasm32::uint64_t,
+    timeout_ns: wasm32::uint32_t,
+    ids: wasm32::uintptr_t,
+    ids_len: wasm32::uint32_t,
+    ln: wasm32::uintptr_t,
+) -> Result<()> {
+    let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
+    let timeout = if non_blocking != 0 {
+        Some(time::Duration::new(timeout_s, timeout_ns))
+    } else {
+        None
+    };
+    let in_len = ids_len as usize;
+    debug!("__events call {:?}", (in_len, timeout));
+    let mut events = ctx.events_limited(timeout, in_len)?;
+    debug!("__events got events {:?}", events);
+    events.resize(in_len, 0);
+    memory::enc_usize_byref(vmctx, ln, events.len())?;
+    memory::enc_slice_of(vmctx, &events, ids)?;
+    Ok(())
+}
+
+fn result_to_wasi_err(rest: Result<()>) -> u16 {
+    (match rest {
+        Ok(_) => host::__WASI_ESUCCESS,
+        Err(err) => err.to_wasi_err(),
+    } as u16)
+}
+lucet_hostcalls! {
     #[no_mangle] pub unsafe extern "C"
     fn __read(
         &mut vmctx,
@@ -62,15 +146,7 @@ lucet_hostcalls! {
         payload_len: wasm32::uintptr_t,
         ln: wasm32::uintptr_t,
     ) -> wasm32::__wasi_errno_t {
-        let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-        match memory::dec_slice_of_mut::<u8>(vmctx, payload as u32, payload_len as u32) {
-            Ok(bytes) => {
-                let read = ctx.read(id as i32, bytes).expect("should have been able to read");
-                memory::enc_usize_byref(vmctx, ln, read).expect("should enc read byref");
-            },
-            Err(e) => panic!("TODO {}", e),
-        };
-        0
+        result_to_wasi_err(_read(vmctx, id, payload, payload_len, ln))
     }
 
     #[no_mangle] pub unsafe extern "C"
@@ -81,16 +157,7 @@ lucet_hostcalls! {
         payload_len: wasm32::uintptr_t,
         ln: wasm32::uintptr_t,
     ) -> wasm32::__wasi_errno_t {
-        let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-        match memory::dec_slice_of::<u8>(vmctx, payload as u32, payload_len as u32) {
-            Ok(bytes) => {
-                let written = ctx.write(id as i32, bytes).expect("should have been able to write");
-                memory::enc_usize_byref(vmctx, ln, written).unwrap();
-            },
-            Err(e) => panic!("TODO {}", e),
-        };
-        println!("__write {:?}", (ctx.address, ctx.address_count, id, payload, payload_len, ln));
-        0
+        result_to_wasi_err(_write(vmctx, id, payload, payload_len, ln))
     }
 
     #[no_mangle] pub unsafe extern "C"
@@ -100,15 +167,7 @@ lucet_hostcalls! {
         name_len: wasm32::uintptr_t,
         id: wasm32::uintptr_t,
     ) -> wasm32::__wasi_errno_t {
-        let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-        let name = match memory::dec_slice_of::<u8>(vmctx, name as u32, name_len as u32) {
-            Ok(bytes) => OsStr::from_bytes(bytes),
-            Err(e) => panic!("TODO: {}", e),
-        };
-        let addr = ctx.spawn(name.to_str().unwrap()).expect("should be able to spawn");
-        // TODO: problem that this is usize?
-        memory::enc_usize_byref(vmctx, id, addr as usize).unwrap();
-        0
+        result_to_wasi_err(_spawn(vmctx, name, name_len, id))
     }
 
     #[no_mangle] pub unsafe extern "C"
@@ -121,20 +180,7 @@ lucet_hostcalls! {
         ids_len: wasm32::uint32_t,
         ln: wasm32::uintptr_t,
     ) -> wasm32::__wasi_errno_t {
-        let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-        let timeout = if non_blocking != 0 {
-            Some(time::Duration::new(timeout_s, timeout_ns))
-        } else {
-            None
-        };
-        let in_len = ids_len as usize;
-        println!("is this working? {}", in_len);
-        let mut events = ctx.events_limited(timeout, in_len).unwrap();
-        println!("what events {:?}", events);
-        events.resize(in_len, 0);
-        memory::enc_usize_byref(vmctx, ln, events.len()).unwrap();
-        memory::enc_slice_of(vmctx, &events, ids).unwrap();
-        0
+        result_to_wasi_err(_events(vmctx, non_blocking, timeout_s, timeout_ns, ids, ids_len, ln))
     }
 
 }
@@ -189,7 +235,7 @@ impl EmblyCtx {
         self.process_messages(Some(time::Duration::new(0, 0)))?;
 
         if let Some(queue) = self.read_buffers.get_mut(&id) {
-            if queue.len() == 0 {
+            if queue.is_empty() {
                 return Ok(0);
             }
             let msg = queue.get_mut(0).expect("there should be something here");
@@ -197,7 +243,7 @@ impl EmblyCtx {
             let to_drain = cmp::min(buf.len(), msg_data_ln);
             let part: Vec<u8> = msg.mut_data().drain(..to_drain).collect();
             buf[..to_drain].copy_from_slice(&part);
-            if msg.get_data().len() == 0 {
+            if msg.get_data().is_empty() {
                 queue.pop_front();
             }
             Ok(part.len())
@@ -209,16 +255,16 @@ impl EmblyCtx {
 
     fn save_msg(&mut self, msg: Message) -> Result<i32> {
         if msg.from == 0 {
-            print!("message has invalid from of 0 {:?}", msg)
+            debug!("message has invalid from of 0 {:?}", msg)
             // TODO: err
         }
         if msg.to == 0 {
-            print!("message has invalid to of 0 {:?}", msg)
+            debug!("message has invalid to of 0 {:?}", msg)
             // TODO: err
         }
 
         let addr = self.add_address(msg.from);
-        println!("save_msg_addr {:?}", (addr, msg.from));
+        debug!("save_msg_addr {:?}", (addr, msg.from));
         if self.read_buffers.get(&addr).is_none() {
             self.read_buffers.insert(addr, VecDeque::new());
         }
@@ -231,7 +277,7 @@ impl EmblyCtx {
         let mut new: Vec<Message> = self.receiver.try_iter().collect();
 
         // if we have events we return
-        if new.len() == 0 {
+        if new.is_empty() {
             if let Some(dur) = timeout {
                 if let Ok(msg) = self.receiver.recv_timeout(dur) {
                     new.push(msg) // block forever
@@ -261,6 +307,7 @@ impl EmblyCtx {
         Ok(self.pending_events.drain(..to_drain).collect())
     }
 
+    #[allow(dead_code)]
     fn events(&mut self, timeout: Option<time::Duration>) -> Result<Vec<i32>> {
         self.process_messages(timeout)?;
         Ok(self.pending_events.drain(..).collect())
@@ -293,15 +340,6 @@ impl EmblyCtx {
         self.write_msg(msg)?;
         Ok(addr)
     }
-
-    fn exit(&mut self, code: i32) -> Result<()> {
-        let mut msg = Message::new();
-        msg.set_to(1);
-        msg.set_from(1);
-        msg.set_exit(code);
-        self.write_msg(msg)
-    }
-
     fn write_msg(&mut self, msg: Message) -> Result<()> {
         write_msg(&mut self.stream_writer, msg)
     }
@@ -309,21 +347,21 @@ impl EmblyCtx {
 
 fn write_msg(stream: &mut UnixStream, msg: Message) -> Result<()> {
     let msg_bytes = msg.write_to_bytes()?;
-    stream.write(&u32_as_u8_le(msg_bytes.len() as u32))?;
-    stream.write(&msg_bytes)?;
+    stream.write_all(&u32_as_u8_le(msg_bytes.len() as u32))?;
+    stream.write_all(&msg_bytes)?;
     Ok(())
 }
 
 fn next_message(stream: &mut UnixStream) -> Result<Message> {
     let mut size_bytes: [u8; 4] = [0; 4];
-    stream.read(&mut size_bytes)?;
+    stream.read_exact(&mut size_bytes)?;
     let size = as_u32_le(&size_bytes) as usize;
     let mut read = 0;
     let mut msg_bytes = vec![0; size];
     loop {
         let ln = stream.read(&mut msg_bytes[read..])?;
         read += ln;
-        println!(
+        debug!(
             "reading msg {:?}",
             (ln, msg_bytes[read..].len(), read, size)
         );
@@ -336,6 +374,8 @@ fn next_message(stream: &mut UnixStream) -> Result<Message> {
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
+
     lucet_wasi::hostcalls::ensure_linked();
     lucet_runtime::lucet_internal_ensure_linked();
 
@@ -352,9 +392,9 @@ fn main() -> Result<()> {
         1,
         &Limits {
             globals_size,
-            heap_memory_size: 4294967296,
-            stack_size: 8388608,
-            heap_address_space_size: 8589934592,
+            heap_memory_size: 4_294_967_296,
+            stack_size: 8_388_608,
+            heap_address_space_size: 8_589_934_592,
         },
     )?;
     let ctx = WasiCtxBuilder::new().inherit_stdio();
@@ -366,16 +406,16 @@ fn main() -> Result<()> {
     let (sender, receiver) = channel();
 
     let addr = addr_string.parse::<u64>().unwrap();
-    stream_reader.write(&u64_as_u8_le(addr))?;
+    stream_reader.write_all(&u64_as_u8_le(addr))?;
     thread::spawn(move || loop {
-        println!("reading bytes");
+        debug!("reading bytes");
         let msg = next_message(&mut stream_reader).unwrap();
         // channel has an infinite buffer, so this is where our messages go
         sender.send(msg).unwrap();
     });
 
     let msg: Message = receiver.recv()?;
-    println!("got first message {:?}", msg);
+    debug!("got first message {:?}", msg);
     if msg.parent_address == 0 || msg.your_address == 0 {
         return Err(error::Error::InvalidStartup(msg));
     }
@@ -446,11 +486,11 @@ mod tests {
         sender.send(msg).unwrap();
 
         let events = ctx.events(Some(time::Duration::new(0, 0))).unwrap();
-        println!("{:?}", events);
+        debug!("{:?}", events);
         assert_eq!(1, events.len());
         let mut buf = vec![0; 4096];
         let ln = ctx.read(id, &mut buf).unwrap() as usize;
-        println!("{}", ln);
+        debug!("{}", ln);
         assert_eq!(str::from_utf8(&buf[..ln]).unwrap(), "hello");
     }
 

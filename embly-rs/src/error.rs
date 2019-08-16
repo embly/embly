@@ -1,16 +1,24 @@
+//! errors
+
 use http;
 use httparse;
 use std::error;
 use std::fmt;
 use std::io;
 
+/// Result is the embly custom result type
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Error is an embly error
 #[derive(Debug)]
 pub enum Error {
+    /// Bytes sent to this function were not a valid http request
     InvalidHttpRequest,
+    /// Wrapper around http::Error
     Http(http::Error),
+    /// Wrapper around io::Error
     Io(io::Error),
+    /// Wrapper around httparse::Error
     HttpParse(httparse::Error),
 }
 

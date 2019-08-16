@@ -4,14 +4,13 @@ use std::io;
 use std::io::Read;
 use std::io::Write;
 
-fn execute(mut comm: embly::Comm) -> io::Result<()> {
+fn execute(mut conn: embly::Conn) -> io::Result<()> {
     loop {
-        comm.wait();
+        conn.wait();
         let mut buffer = Vec::new();
-        comm.read_to_end(&mut buffer)?;
-        comm.write_all(&[&b"from embly: "[..], &buffer[..]].concat())?;
+        conn.read_to_end(&mut buffer)?;
+        conn.write_all(&[&b"from embly: "[..], &buffer[..]].concat())?;
     }
-    Ok(())
 }
 fn main() {
     embly::run(execute);

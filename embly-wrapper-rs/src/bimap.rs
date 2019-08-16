@@ -19,22 +19,24 @@ where
             left_to_right: HashMap::new(),
         }
     }
+    #[allow(dead_code)]
     pub fn remove_by_key(&mut self, k: K) -> Option<V> {
         match self.right_to_left.remove(&k) {
             Some(v) => {
                 let _ = self.left_to_right.remove(&v);
-                return Some(v);
+                Some(v)
             }
-            None => return None,
+            None => None,
         }
     }
+    #[allow(dead_code)]
     pub fn remove_by_val(&mut self, v: V) -> Option<K> {
         match self.left_to_right.remove(&v) {
             Some(k) => {
                 let _ = self.right_to_left.remove(&k);
-                return Some(k);
+                Some(k)
             }
-            None => return None,
+            None => None,
         }
     }
     pub fn get_value(&self, key: K) -> Option<&V> {
