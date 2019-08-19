@@ -1,0 +1,10 @@
+functions:
+  - name: encoder
+    path: ./examples/mjpeg/encoder
+    context: ./../.. # todo: let's find a better way to do this
+    language: rust
+gateways:
+  - name: index
+    type: http
+    port: 8084
+    function: encoder

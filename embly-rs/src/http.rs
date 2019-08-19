@@ -20,6 +20,7 @@
 //!     run(execute)
 //! }
 //! ```
+//!
 
 use crate::error::{Error, Result};
 use crate::Conn;
@@ -36,9 +37,10 @@ use std::io::Read;
 use std::io::Write;
 
 /// An http body
+#[derive(Debug)]
 pub struct Body {
-    read_buf: Vec<u8>,
     conn: Conn,
+    read_buf: Vec<u8>,
 }
 
 /// An http response writer. Used to write an http response, can either be used to write
@@ -47,7 +49,9 @@ pub struct ResponseWriter {
     body: Body,
     parts: Parts,
     write_buf: Vec<u8>,
-    headers_writen: bool,
+    // TODO: consolidate this logic
+    headers_written: bool,
+    function_returned: bool,
 }
 
 impl ResponseWriter {
@@ -55,13 +59,19 @@ impl ResponseWriter {
         let (p, _) = Response::new(()).into_parts();
         Self {
             body,
-            headers_writen: false,
+            headers_written: false,
+            function_returned: false,
             parts: p,
             write_buf: Vec::new(),
         }
     }
     fn write_headers(&mut self) -> Vec<u8> {
         let mut dst: Vec<u8> = Vec::new();
+
+        if self.function_returned && !self.parts.headers.contains_key("Transfer-Encoding") {
+            self.header("Content-Length", self.write_buf.len()).unwrap();
+        }
+
         let init_cap = 30 + self.parts.headers.len() * AVERAGE_HEADER_SIZE;
         dst.reserve(init_cap);
         extend(&mut dst, b"HTTP/1.1 "); // todo: support passed version
@@ -77,7 +87,6 @@ impl ResponseWriter {
         );
         extend(&mut dst, b"\r\n");
         for (name, values) in self.parts.headers.drain() {
-            // todo: content-length, chunked, etc....
             for value in values {
                 extend(&mut dst, name.as_str().as_bytes());
                 extend(&mut dst, b": ");
@@ -97,7 +106,7 @@ impl ResponseWriter {
         match HeaderName::try_from(key) {
             Ok(key) => match HeaderValue::try_from(value) {
                 Ok(value) => {
-                    self.parts.headers.append(key, value);
+                    self.parts.headers.insert(key, value);
                     Ok(())
                 }
                 Err(e) => Err(Error::Http(e.into())),
@@ -128,11 +137,25 @@ impl io::Write for ResponseWriter {
         self.write_buf.write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// flusher
+pub trait Flusher {
+    /// flusher
+    fn flush_response(&mut self) -> Result<()>;
+}
+
+impl Flusher for ResponseWriter {
+    fn flush_response(&mut self) -> Result<()> {
         // quick extra allocation for now to ensure flush makes one write call with
         // all bytes
+        // TODO: remove extra allocation
         let mut out = Vec::new();
-        if !self.headers_writen {
+        if !self.headers_written {
             let dst = &self.write_headers();
+            self.headers_written = true;
             out.write_all(dst)?;
         }
         out.write_all(&self.write_buf)?;
@@ -167,7 +190,6 @@ impl io::Write for Body {
         self.conn.write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
-        // this might start a chunked response
         Ok(())
     }
 }
@@ -176,8 +198,6 @@ fn build_request_from_comm(c: Conn) -> Result<Request<Body>> {
     c.wait()?;
     reader_to_request(c)
 }
-
-impl Body {}
 
 // https://github.com/hyperium/hyper/blob/da9b0319ef8d85662f66ac3bea74036b3dd3744e/src/proto/h1/role.rs#L18
 const MAX_HEADERS: usize = 100;
@@ -189,9 +209,8 @@ fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>> {
 
     let mut req = httparse::Request::new(&mut headers);
     c.read_to_end(&mut buf)?;
-    println!("{:?}", buf);
-    let res = req.parse(&buf)?;
-    if res.is_partial() {
+    let result = req.parse(&buf)?;
+    if result.is_partial() {
         return Err(Error::InvalidHttpRequest);
     }
     let mut request = Request::builder();
@@ -209,8 +228,41 @@ fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>> {
         request.header(h.name, h.value);
     }
     Ok(request.body(Body {
-        conn: Conn { id: 0 },
-        read_buf: buf[res.unwrap()..].to_vec(),
+        conn: Conn { id: 0, buf: None },
+        read_buf: buf[result.unwrap()..].to_vec(),
+    })?)
+}
+
+// Will be used, currently just used for tests
+#[allow(dead_code)]
+fn reader_to_response<R: Read>(mut c: R) -> Result<Response<Body>> {
+    let mut headers: Vec<httparse::Header> = vec![httparse::EMPTY_HEADER; MAX_HEADERS];
+    let mut buf: Vec<u8> = Vec::new();
+
+    let mut res = httparse::Response::new(&mut headers);
+    c.read_to_end(&mut buf)?;
+    let result = res.parse(&buf)?;
+    if result.is_partial() {
+        return Err(Error::InvalidHttpRequest);
+    }
+
+    let mut response = Response::builder();
+    if let Some(code) = res.code {
+        response.status(code);
+    }
+
+    // TODO: reason? version?
+
+    // todo: reserve correct header capacity
+    for h in &headers {
+        if h.name.is_empty() && h.value.is_empty() {
+            break;
+        }
+        response.header(h.name, h.value);
+    }
+    Ok(response.body(Body {
+        conn: Conn { id: 0, buf: None },
+        read_buf: buf[result.unwrap()..].to_vec(),
     })?)
 }
 
@@ -234,17 +286,22 @@ fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>> {
 /// }
 /// ```
 pub fn run(to_run: fn(Request<Body>, &mut ResponseWriter) -> Result<()>) -> Result<()> {
-    println!("running http func");
-
     let function_id = 1;
-    let c = Conn { id: function_id };
+    let c = Conn {
+        id: function_id,
+        buf: None,
+    };
     let r = build_request_from_comm(c)?;
     let mut resp = ResponseWriter::new(Body {
-        conn: Conn { id: function_id },
+        conn: Conn {
+            id: function_id,
+            buf: None,
+        },
         read_buf: Vec::new(),
     });
     to_run(r, &mut resp)?;
-    resp.flush()?;
+    resp.function_returned = true;
+    resp.flush_response()?;
     Ok(())
 }
 
@@ -279,11 +336,52 @@ Content-Length: 27
 field1=value1&field2=value2";
         let mut request = reader_to_request(b.as_bytes())?;
         let body = request.body_mut();
-
         let mut b: Vec<u8> = Vec::new();
         body.read_to_end(&mut b)?;
         let values = "field1=value1&field2=value2";
         assert_eq!(b, values.as_bytes());
+        Ok(())
+    }
+
+    fn test_response_writer() -> ResponseWriter {
+        ResponseWriter::new(Body {
+            conn: Conn {
+                id: 0,
+                buf: Some(Vec::new()),
+            },
+            read_buf: Vec::new(),
+        })
+    }
+
+    #[test]
+    fn basic_response() -> Result<()> {
+        let mut w = test_response_writer();
+
+        w.write_all(b"hello\n")?;
+        w.status(401)?;
+        w.header("Content-Type", "text/plain")?;
+
+        w.function_returned = true;
+        w.flush_response()?;
+        let res = reader_to_response(w.body.conn)?;
+        assert_eq!("6", res.headers().get("Content-Length").unwrap());
+        assert_eq!(401, res.status());
+        assert_eq!("text/plain", res.headers().get("Content-Type").unwrap());
+
+        Ok(())
+    }
+
+    #[test]
+    fn no_status_response() -> Result<()> {
+        let mut w = test_response_writer();
+
+        w.header("Content-Type", "text/plain")?;
+        w.write_all(b"hello\n")?;
+        w.function_returned = true;
+        w.flush_response()?;
+
+        let res = reader_to_response(w.body.conn)?;
+        assert_eq!(200, res.status());
         Ok(())
     }
 

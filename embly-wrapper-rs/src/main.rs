@@ -1,3 +1,15 @@
+//! The embly wrapper runs webassembly code and managest embly runtime syscall functionality
+//!
+
+#![deny(
+    trivial_numeric_casts,
+    unstable_features,
+    unused_extern_crates,
+    unused_features
+)]
+#![warn(unused_import_braces, unused_parens)]
+#![deny(clippy::all)]
+
 use bimap::BidirectionalMap;
 use error::Result;
 use lucet_wasi;
@@ -62,11 +74,9 @@ fn _read(
     ln: wasm32::uintptr_t,
 ) -> Result<()> {
     let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-    let bytes = memory::dec_slice_of_mut::<u8>(vmctx, payload as u32, payload_len as u32)?;
-    let read = ctx
-        .read(id as i32, bytes)
-        .expect("should have been able to read");
-    memory::enc_usize_byref(vmctx, ln, read).expect("should enc read byref");
+    let bytes = memory::dec_slice_of_mut::<u8>(vmctx, payload, payload_len)?;
+    let read = ctx.read(id as i32, bytes)?;
+    memory::enc_usize_byref(vmctx, ln, read)?;
     Ok(())
 }
 
@@ -78,7 +88,7 @@ fn _write(
     ln: wasm32::uintptr_t,
 ) -> Result<()> {
     let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-    let bytes = memory::dec_slice_of::<u8>(vmctx, payload as u32, payload_len as u32)?;
+    let bytes = memory::dec_slice_of::<u8>(vmctx, payload, payload_len)?;
     let written = ctx.write(id as i32, bytes)?;
     memory::enc_usize_byref(vmctx, ln, written)?;
     debug!(
@@ -95,11 +105,7 @@ fn _spawn(
     id: wasm32::uintptr_t,
 ) -> Result<()> {
     let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-    let name = OsStr::from_bytes(memory::dec_slice_of::<u8>(
-        vmctx,
-        name as u32,
-        name_len as u32,
-    )?);
+    let name = OsStr::from_bytes(memory::dec_slice_of::<u8>(vmctx, name, name_len)?);
     debug!("__spawn call {:?}", (name));
     let addr = ctx.spawn(name.to_str().unwrap())?;
     memory::enc_usize_byref(vmctx, id, addr as usize)?;
@@ -386,6 +392,7 @@ fn main() -> Result<()> {
 
     let module = DlModule::load(&embly_module)?;
 
+    // TODO: support memory constraints
     let min_globals_size = module.globals().len() * std::mem::size_of::<u64>();
     let globals_size = ((min_globals_size + 4096 - 1) / 4096) * 4096;
     let region = MmapRegion::create(
@@ -465,11 +472,11 @@ mod tests {
     const FUNC_ADDRESS: u64 = 8700;
     const MASTER: u64 = 8701;
 
-    fn new_ctx() -> (EmblyCtx, mpsc::Sender<Message>, UnixStream) {
-        let (sock1, sock2) = UnixStream::pair().unwrap();
+    fn new_ctx() -> Result<(EmblyCtx, mpsc::Sender<Message>, UnixStream)> {
+        let (sock1, sock2) = UnixStream::pair()?;
         let (sender, receiver) = channel();
         let ctx = EmblyCtx::new(receiver, sock1, FUNC_ADDRESS, MASTER);
-        (ctx, sender, sock2)
+        Ok((ctx, sender, sock2))
     }
 
     fn assert_send_and_read(
@@ -478,44 +485,47 @@ mod tests {
         to: u64,
         ctx: &mut EmblyCtx,
         sender: mpsc::Sender<Message>,
-    ) {
+    ) -> Result<()> {
         let mut msg = Message::new();
         msg.set_data(b"hello".to_vec());
         msg.set_from(from);
         msg.set_to(to);
-        sender.send(msg).unwrap();
+        sender.send(msg)?;
 
-        let events = ctx.events(Some(time::Duration::new(0, 0))).unwrap();
+        let events = ctx.events(Some(time::Duration::new(0, 0)))?;
         debug!("{:?}", events);
         assert_eq!(1, events.len());
         let mut buf = vec![0; 4096];
-        let ln = ctx.read(id, &mut buf).unwrap() as usize;
+        let ln = ctx.read(id, &mut buf)?;
         debug!("{}", ln);
         assert_eq!(str::from_utf8(&buf[..ln]).unwrap(), "hello");
+        Ok(())
     }
 
     #[test]
-    fn test_basic_read() {
-        let (mut ctx, sender, _stream) = new_ctx();
+    fn test_basic_read() -> Result<()> {
+        let (mut ctx, sender, _stream) = new_ctx()?;
 
         assert_eq!(
             0,
             ctx.events(Some(time::Duration::new(0, 0))).unwrap().len()
         );
 
-        assert_send_and_read(1, MASTER, FUNC_ADDRESS, &mut ctx, sender);
+        assert_send_and_read(1, MASTER, FUNC_ADDRESS, &mut ctx, sender)?;
+        Ok(())
     }
     #[test]
-    fn test_spawn() {
-        let (mut ctx, sender, mut stream) = new_ctx();
+    fn test_spawn() -> Result<()> {
+        let (mut ctx, sender, mut stream) = new_ctx()?;
 
-        let addr = ctx.spawn("name").unwrap();
+        let addr = ctx.spawn("name")?;
 
-        let msg = next_message(&mut stream).unwrap();
+        let msg = next_message(&mut stream)?;
         assert_eq!(msg.spawn, "name");
         let spawn_addr = msg.spawn_address;
         assert_eq!(msg.spawn_address, *ctx.address_map.get_value(addr).unwrap());
 
-        assert_send_and_read(addr, spawn_addr, FUNC_ADDRESS, &mut ctx, sender);
+        assert_send_and_read(addr, spawn_addr, FUNC_ADDRESS, &mut ctx, sender)?;
+        Ok(())
     }
 }

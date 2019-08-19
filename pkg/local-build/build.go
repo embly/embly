@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +31,6 @@ func Create(fName, buildLocation, buildContext, destination string) (err error) 
 	if cli, err = client.NewClientWithOpts(client.FromEnv); err != nil {
 		return
 	}
-	log.Println("building with: ", buildLocation, buildContext, destination)
 
 	ctx := context.Background()
 
@@ -78,16 +76,15 @@ func Create(fName, buildLocation, buildContext, destination string) (err error) 
 	}
 
 	outName := filepath.Base(destination)
-	if err = execInContainerAndWait(ctx, cli, containerName, []string{"bash", "-c", fmt.Sprintf(`
-set -x
+	if err = execInContainerAndWait(ctx, cli, containerName, []string{"bash", "-e", "-c", fmt.Sprintf(`
+#set -x
 cd %s \
-&& ls -lah \
 && mkdir -p /opt/out \
-&& rm /opt/out/*.wasm || true \
+&& rm /opt/out/*.wasm 2> /dev/null || true \
 && cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir /opt/out \
 && wasm-strip /opt/out/*.wasm \
 && ls -lah /opt/out/*.wasm \
-&& mv /opt/out/*.wasm /opt/out/%s || true
+&& $(mv /opt/out/*.wasm /opt/out/%s 2> /dev/null || true)
 	`, filepath.Join("/opt/context", relLocation), outName)}); err != nil {
 		err = errors.WithStack(err)
 		return
@@ -154,9 +151,19 @@ func execInContainerAndWait(ctx context.Context, cli *client.Client, containerNa
 	if hr, err = cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{Detach: false, Tty: false}); err != nil {
 		return
 	}
+
 	_, err = stdcopy.StdCopy(
 		textio.NewPrefixWriter(os.Stdout, "stdout: "),
 		textio.NewPrefixWriter(os.Stderr, "stderr: "),
 		hr.Reader)
+	hr.Close()
+
+	var execInspect types.ContainerExecInspect
+	if execInspect, err = cli.ContainerExecInspect(ctx, execID.ID); err != nil {
+		return
+	}
+	if execInspect.ExitCode != 0 {
+		err = errors.Errorf("Got non zero exit code for exec %d", execInspect.ExitCode)
+	}
 	return
 }

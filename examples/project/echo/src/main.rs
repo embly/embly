@@ -1,17 +1,22 @@
 extern crate embly;
+extern crate rand;
 
-use std::io;
+use embly::Result;
 use std::io::Read;
 use std::io::Write;
+use std::time::SystemTime;
 
-fn execute(mut conn: embly::Conn) -> io::Result<()> {
+fn execute(mut conn: embly::Conn) -> Result<()> {
     loop {
-        conn.wait();
+        conn.wait()?;
         let mut buffer = Vec::new();
         conn.read_to_end(&mut buffer)?;
+        let now = SystemTime::now();
+        let y = rand::random::<f64>();
+        println!("time {:?} {}", now, y);
         conn.write_all(&[&b"from embly: "[..], &buffer[..]].concat())?;
     }
 }
-fn main() {
-    embly::run(execute);
+fn main() -> Result<()> {
+    embly::run(execute)
 }

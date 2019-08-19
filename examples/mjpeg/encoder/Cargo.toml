@@ -1,9 +1,14 @@
 [package]
-name = "listener"
+name = "encoder"
 version = "0.1.0"
 authors = ["maxmcd <max.t.mcdonnell@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 embly = {path = "../../../embly-rs"}
+num-complex = "0.2.3"
 
+[dependencies.image]
+version = "0.22.1"
+default-features = false 
+features = ["jpeg"]

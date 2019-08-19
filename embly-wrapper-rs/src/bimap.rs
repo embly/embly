@@ -13,8 +13,8 @@ where
     K: Hash + Eq + Clone,
     V: Hash + Eq + Clone,
 {
-    pub fn new() -> BidirectionalMap<K, V> {
-        BidirectionalMap {
+    pub fn new() -> Self {
+        Self {
             right_to_left: HashMap::new(),
             left_to_right: HashMap::new(),
         }

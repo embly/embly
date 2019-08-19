@@ -9,12 +9,11 @@ use std::io::Write;
 fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
     let mut hello = embly::spawn_function("hello")?;
     let mut buffer = Vec::new();
-    hello.wait();
+    hello.wait()?;
     hello.read_to_end(&mut buffer)?;
     println!("buffer contents after wait {:?}", buffer);
-    w.write(&buffer)?;
+    w.write_all(&buffer)?;
     w.status("200")?;
-    w.header("Content-Length", "6")?;
     w.header("Content-Type", "text/plain")?;
     Ok(())
 }

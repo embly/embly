@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -190,20 +188,19 @@ func (emblyCtx *emblyBinContext) launchHTTPGateway(g projectGateway) (err error)
 				w.Write([]byte(err.Error()))
 			}
 			masterG.Write(out)
-			masterG.Wait()
-			b := masterG.Bytes()
-			resp, err := http.ReadResponse(bufio.NewReader(bytes.NewBuffer(b)), r)
+			hj, ok := w.(http.Hijacker)
+			if !ok {
+				http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+				return
+			}
+			conn, _, err := hj.Hijack()
 			if err != nil {
-				w.WriteHeader(500)
-				w.Write([]byte(err.Error()))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
-			w.WriteHeader(resp.StatusCode)
-			for k, vs := range resp.Header {
-				for _, v := range vs {
-					w.Header().Add(k, v)
-				}
-			}
-			io.Copy(w, resp.Body)
+			ln, err := io.Copy(conn, masterG)
+			log.Println("COPY COMPLETE", ln, err)
+			emblyCtx.master.StopFunction(masterFn)
 		}),
 	}
 	log.Printf("HTTP gateway '%s' listening on port %d\n", g.Name, g.Port)

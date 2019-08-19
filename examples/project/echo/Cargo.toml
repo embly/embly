@@ -6,5 +6,4 @@ edition = "2018"
 
 [dependencies]
 embly = {path = "../../../embly-rs"}
-
-[workspace]
+rand = "0.7.0"

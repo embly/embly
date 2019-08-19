@@ -36,23 +36,25 @@
 )]
 
 pub use error::Result;
-use std::io;
-use std::time;
 
+// not used with wasm
+#[allow(unused_imports)]
+use std::cmp;
+
+use std::{io, time};
 pub mod error;
 pub mod http;
-
 use std::sync::Mutex;
 #[macro_use]
 extern crate lazy_static;
 
+use std::collections::btree_set::BTreeSet;
+
 lazy_static! {
-    static ref EVENT_REGISTRY: Mutex<Vec<i32>> = {
-        let m = Vec::new();
-        Mutex::new(m)
-    };
+    static ref EVENT_REGISTRY: Mutex<BTreeSet<i32>> = { Mutex::new(BTreeSet::new()) };
 }
-/// Conn's are connections and handle communication between functions or to a gateway
+
+/// Connections that handle communication between functions or gateways
 ///
 /// ## Receive Bytes
 ///
@@ -105,8 +107,12 @@ lazy_static! {
 /// ```
 ///
 ///
+///
+
+#[derive(Debug)]
 pub struct Conn {
     id: i32,
+    buf: Option<Vec<u8>>,
 }
 
 /// Spawn a Function
@@ -131,25 +137,61 @@ pub struct Conn {
 /// ```
 ///
 pub fn spawn_function(name: &str) -> Result<Conn> {
-    Ok(Conn { id: spawn(name)? })
+    Ok(Conn {
+        id: spawn(name)?,
+        buf: None,
+    })
+}
+
+fn process_event_ids(ids: Vec<i32>) {
+    let mut er = EVENT_REGISTRY.lock().unwrap();
+    for id in ids {
+        er.insert(id);
+    }
+}
+
+fn has_id(id: i32) -> bool {
+    let er = EVENT_REGISTRY.lock().unwrap();
+    er.contains(&id)
+}
+
+// only used by wasm
+#[allow(dead_code)]
+fn remove_id(id: i32) {
+    let mut er = EVENT_REGISTRY.lock().unwrap();
+    er.remove(&id);
 }
 
 impl Conn {
     /// Wait for bytes to be available to be read from this Conn.
+    ///
+    /// This will wait for the next bytes that arrive, there still might be
+    /// bytes to be read in the connection buffer.
     pub fn wait(&self) -> Result<()> {
-        let ids = events(Some(time::Duration::new(0, 0)))?;
-        if ids.is_empty() {
-            events(None)?;
+        // the first call to events will check without blocking
+        let mut timeout = Some(time::Duration::new(0, 0));
+        loop {
+            let ids = events(timeout)?;
+            process_event_ids(ids);
+            if has_id(self.id) {
+                break;
+            }
+            // the next call to events should block
+            timeout = None;
         }
         Ok(())
     }
 }
 
+#[cfg(all(target_arch = "wasm32"))]
 impl io::Read for Conn {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        remove_id(self.id);
         read(self.id, buf)
     }
 }
+
+#[cfg(all(target_arch = "wasm32"))]
 impl io::Write for Conn {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         write(self.id, buf)
@@ -159,12 +201,40 @@ impl io::Write for Conn {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl io::Read for Conn {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if let Some(ref mut selfbuf) = self.buf {
+            let amnt = cmp::min(buf.len(), selfbuf.len());
+            buf[..amnt].copy_from_slice(&selfbuf[..amnt]);
+            selfbuf.drain(..amnt);
+            Ok(amnt)
+        } else {
+            read(self.id, buf)
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl io::Write for Conn {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if self.buf.is_some() {
+            self.buf.as_mut().unwrap().write(buf)
+        } else {
+            write(self.id, buf)
+        }
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 #[cfg(all(target_arch = "wasm32"))]
 #[link(wasm_import_module = "embly")]
 extern "C" {
-    fn _read(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u32;
-    fn _write(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u32;
-    fn _spawn(name: *const u8, name_len: u32, id: *mut i32) -> u32;
+    fn _read(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u16;
+    fn _write(id: i32, payload: *const u8, payload_len: u32, ln: *mut i32) -> u16;
+    fn _spawn(name: *const u8, name_len: u32, id: *mut i32) -> u16;
     fn _events(
         non_blocking: u8,
         timeout_s: u64,
@@ -172,7 +242,7 @@ extern "C" {
         ids: *const i32,
         ids_len: u32,
         ln: *mut i32,
-    ) -> u32;
+    ) -> u16;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -183,26 +253,27 @@ unsafe fn _events(
     _ids: *const i32,
     _ids_len: u32,
     _ln: *mut i32,
-) -> u32 {
+) -> u16 {
     0
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-unsafe fn _read(_id: i32, _payload: *const u8, _payload_len: u32, ln: *mut i32) -> u32 {
-    // lie and say EOF
+unsafe fn _read(_id: i32, _payload: *const u8, _payload_len: u32, ln: *mut i32) -> u16 {
+    // lie and say no bytes
     *ln = 0;
     0
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-unsafe fn _write(_id: i32, _payload: *const u8, payload_len: u32, ln: *mut i32) -> u32 {
+unsafe fn _write(_id: i32, _payload: *const u8, payload_len: u32, ln: *mut i32) -> u16 {
     // lie and say we write things
     *ln = payload_len as i32;
     0
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-unsafe fn _spawn(_name: *const u8, _name_len: u32, id: *mut i32) -> u32 {
+unsafe fn _spawn(_name: *const u8, _name_len: u32, id: *mut i32) -> u16 {
+    // lie and say the spawn id is 1
     *id = 1;
     0
 }
@@ -210,21 +281,25 @@ unsafe fn _spawn(_name: *const u8, _name_len: u32, id: *mut i32) -> u32 {
 fn read(id: i32, payload: &mut [u8]) -> io::Result<usize> {
     let mut ln: i32 = 0;
     let ln_ptr: *mut i32 = &mut ln;
-    let _ = unsafe { _read(id, payload.as_ptr(), payload.len() as u32, ln_ptr) };
+    error::wasi_err_to_io_err(unsafe {
+        _read(id, payload.as_ptr(), payload.len() as u32, ln_ptr)
+    })?;
     Ok(ln as usize)
 }
 
 fn write(id: i32, payload: &[u8]) -> io::Result<usize> {
     let mut ln: i32 = 0;
     let ln_ptr: *mut i32 = &mut ln;
-    let _ = unsafe { _write(id, payload.as_ptr(), payload.len() as u32, ln_ptr) };
+    error::wasi_err_to_io_err(unsafe {
+        _write(id, payload.as_ptr(), payload.len() as u32, ln_ptr)
+    })?;
     Ok(ln as usize)
 }
 
 fn spawn(name: &str) -> Result<i32> {
     let mut id: i32 = 0;
     let id_ptr: *mut i32 = &mut id;
-    let _ = unsafe { _spawn(name.as_ptr(), name.len() as u32, id_ptr) };
+    error::wasi_err_to_io_err(unsafe { _spawn(name.as_ptr(), name.len() as u32, id_ptr) })?;
     Ok(id)
 }
 
@@ -241,7 +316,7 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>> {
     } else {
         non_blocking = 1
     };
-    let _ = unsafe {
+    error::wasi_err_to_io_err(unsafe {
         _events(
             non_blocking,
             timeout_s,
@@ -250,8 +325,7 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>> {
             out.len() as u32,
             ln_ptr,
         )
-    };
-    println!("events print  {:?}", (out, ln));
+    })?;
     Ok(out[..(ln as usize)].to_vec())
 }
 
@@ -277,16 +351,7 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>> {
 /// ```
 ///
 pub fn run(to_run: fn(Conn) -> Result<()>) -> Result<()> {
-    println!("running regular func");
-    let c = Conn { id: 1 };
+    let c = Conn { buf: None, id: 1 };
     // todo: do something with this error
     to_run(c)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 }

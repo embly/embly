@@ -1,12 +1,12 @@
 extern crate embly;
 
-use std::io;
+use embly::Result;
 use std::io::Write;
 
-fn execute(mut conn: embly::Conn) -> io::Result<()> {
+fn execute(mut conn: embly::Conn) -> Result<()> {
     conn.write_all(b"Embly\n")?;
     Ok(())
 }
-fn main() {
-    embly::run(execute);
+fn main() -> Result<()> {
+    embly::run(execute)
 }

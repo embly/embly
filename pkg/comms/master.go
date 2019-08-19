@@ -86,6 +86,7 @@ type Function struct {
 	parent   uint64
 	cmd      *exec.Cmd
 	conn     net.Conn
+	exited   int32
 	connWait sync.WaitGroup
 }
 
@@ -112,26 +113,15 @@ func (fn *Function) SendMsg(msg comms_proto.Message) {
 	fn.conn.Write(b)
 }
 
-// SendMsg sends a protobuf Message to this gateway
-func (gat *Gateway) SendMsg(msg comms_proto.Message) {
-	if msg.Exit != 0 {
-		log.Fatal("unimplemented")
-	}
-	if msg.Spawn != "" {
-		log.Fatal("unimplemented")
-	}
-	gat.buf.Write(msg.Data)
-	gat.readCond.Broadcast()
-}
-
 // A Gateway is a way for a function to communicate with the outside world
 type Gateway struct {
-	ID       uint64
-	buf      bytes.Buffer
-	readCond *sync.Cond
-	child    uint64
-	master   *Master
-	msgChan  chan comms_proto.Message
+	ID          uint64
+	buf         bytes.Buffer
+	readCond    *sync.Cond
+	child       uint64
+	master      *Master
+	childExited int32
+	msgChan     chan comms_proto.Message
 }
 
 // NewGateway creates a new gateway
@@ -139,10 +129,11 @@ func (m *Master) NewGateway() *Gateway {
 	id := rand.Uint64()
 	mu := sync.Mutex{}
 	gat := &Gateway{
-		ID:       id,
-		msgChan:  make(chan comms_proto.Message, 2),
-		master:   m,
-		readCond: sync.NewCond(&mu),
+		ID:          id,
+		msgChan:     make(chan comms_proto.Message, 2),
+		master:      m,
+		childExited: -1, // running
+		readCond:    sync.NewCond(&mu),
 	}
 	m.registry[id] = gat
 	return gat
@@ -153,11 +144,26 @@ func (gat *Gateway) AttachFn(fn *Function) {
 	gat.child = fn.addr
 }
 
+// SendMsg sends a protobuf Message to this gateway
+func (gat *Gateway) SendMsg(msg comms_proto.Message) {
+	if msg.Exiting {
+		gat.childExited = msg.Exit
+		gat.readCond.Broadcast()
+	} else if msg.Spawn != "" {
+		log.Fatal("unimplemented")
+	} else {
+		gat.buf.Write(msg.Data)
+		gat.readCond.Broadcast()
+	}
+}
+
 // Wait waits for bytes to be available to be read from the gateway
 func (gat *Gateway) Wait() {
 	gat.readCond.L.Lock()
-	if gat.buf.Len() == 0 {
+	if gat.buf.Len() == 0 && gat.childExited == -1 {
+		fmt.Println("waiting!")
 		gat.readCond.Wait()
+		fmt.Println("released!")
 	}
 	gat.readCond.L.Unlock()
 }
@@ -199,6 +205,16 @@ func (fn *Function) Start() (err error) {
 	return fn.cmd.Start()
 }
 
+// Stop a functions process
+func (fn *Function) Stop() {
+	if fn.cmd.Process != nil {
+		err := fn.cmd.Process.Kill()
+		if err != nil {
+			log.Println("error killing func", err)
+		}
+	}
+}
+
 // RegisterFunctionName takes an object file location and a function name for future reference
 func (m *Master) RegisterFunctionName(name, location string) {
 	m.functions[name] = location
@@ -208,6 +224,13 @@ func (m *Master) RegisterFunctionName(name, location string) {
 func (m *Master) SpawnFunction(name string, parent uint64, addr uint64) {
 	fn := m.NewFunction(m.functions[name], parent, &addr)
 	fn.Start()
+}
+
+// Stop a function and remove it from the registry
+func (m *Master) StopFunction(fn *Function) {
+	fn.Stop()
+	// TODO: not threadsafe?
+	delete(m.registry, fn.addr)
 }
 
 // NewFunction creates and initializes a new function, it doesn't start until function.Start is run
@@ -265,7 +288,7 @@ func (m *Master) Start() {
 				continue
 			}
 
-			log.Printf("got message %#v\n", msg)
+			log.Printf("got message %#v %s\n", msg, string(msg.Data))
 			if msg.Spawn != "" {
 				m.SpawnFunction(msg.Spawn, msg.From, msg.SpawnAddress)
 				continue
@@ -274,7 +297,13 @@ func (m *Master) Start() {
 			recFn := m.registry[msg.To]
 			if recFn == nil {
 				log.Fatal("fn not found for id ", msg.To)
+				continue
 			}
+
+			if msg.Exiting == true {
+				log.Println("Function exiting with code", msg.Exit)
+			}
+
 			recFn.SendMsg(msg)
 		}
 	})
