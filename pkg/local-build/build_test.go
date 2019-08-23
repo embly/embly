@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-const SockAddr = "/tmp/embly.sock"
-
 func TestCreate(t *testing.T) {
 	t.Skip()
 

@@ -20,8 +20,9 @@ import (
 
 // Master is the central coordinator for embly functions
 type Master struct {
+	mutex     sync.Mutex
+	registry  sync.Map
 	functions map[string]string
-	registry  map[uint64]funcOrGateway
 }
 
 type funcOrGateway interface {
@@ -31,32 +32,37 @@ type funcOrGateway interface {
 // NewMaster creates a new master
 func NewMaster() *Master {
 	return &Master{
-		registry:  make(map[uint64]funcOrGateway),
+		registry:  sync.Map{},
 		functions: make(map[string]string),
 	}
 }
 
 // SockAddr is the location of the embly unix socket
-const SockAddr = "/tmp/embly.sock"
+var SockAddr = "/tmp/embly.sock"
 
-func prepareMsg(msg comms_proto.Message) (b []byte, err error) {
-	b, err = proto.Marshal(&msg)
+// EmblyWrapperExecutable is the executable we'll run
+var EmblyWrapperExecutable = "embly-wrapper"
+
+// WriteMessage writes a proto Message to an io.Writer
+func WriteMessage(consumer io.Writer, msg comms_proto.Message) (err error) {
+	b, err := proto.Marshal(&msg)
 	size := make([]byte, 4)
 	binary.LittleEndian.PutUint32(size, uint32(len(b)))
 	if err != nil {
 		return
 	}
 	b = append(size, b...)
+	ln, err := consumer.Write(b)
+	if ln != len(b) {
+		panic("didn't write everything!")
+	}
 	return
 }
 
-type consumer struct {
-	source io.Reader
-}
-
-func (p *consumer) nextMessage() (msg comms_proto.Message, err error) {
+// NextMessage grabs the next message from a reader
+func NextMessage(consumer io.Reader) (msg comms_proto.Message, err error) {
 	sizeBytes := make([]byte, 4)
-	_, err = p.source.Read(sizeBytes)
+	_, err = consumer.Read(sizeBytes)
 	if err != nil {
 		return
 	}
@@ -65,7 +71,7 @@ func (p *consumer) nextMessage() (msg comms_proto.Message, err error) {
 	msgBytes := make([]byte, size)
 	for {
 		var ln int
-		if ln, err = p.source.Read(msgBytes[read:]); err != nil {
+		if ln, err = consumer.Read(msgBytes[read:]); err != nil {
 			return
 		}
 		read += ln
@@ -104,18 +110,15 @@ func (fn *Function) HasConnOrWait() {
 // SendMsg sends a protobuf Message to this function
 func (fn *Function) SendMsg(msg comms_proto.Message) {
 	fn.HasConnOrWait()
-	b, err := prepareMsg(msg)
-	if err != nil {
+	if err := WriteMessage(fn.conn, msg); err != nil {
 		log.Println(err)
 	}
-	// net.Conn is thread safe
-	// TODO: ensure all was written
-	fn.conn.Write(b)
 }
 
 // A Gateway is a way for a function to communicate with the outside world
 type Gateway struct {
 	ID          uint64
+	bufMutex    sync.Mutex
 	buf         bytes.Buffer
 	readCond    *sync.Cond
 	child       uint64
@@ -135,8 +138,13 @@ func (m *Master) NewGateway() *Gateway {
 		childExited: -1, // running
 		readCond:    sync.NewCond(&mu),
 	}
-	m.registry[id] = gat
+	m.addFuncOrGateway(id, gat)
 	return gat
+}
+
+// RemoveGateway removes a gateway
+func (m *Master) RemoveGateway(gat *Gateway) {
+	m.delFuncOrGateway(gat.ID)
 }
 
 // AttachFn attaches a function to this gateway
@@ -152,7 +160,9 @@ func (gat *Gateway) SendMsg(msg comms_proto.Message) {
 	} else if msg.Spawn != "" {
 		log.Fatal("unimplemented")
 	} else {
+		gat.bufMutex.Lock()
 		gat.buf.Write(msg.Data)
+		gat.bufMutex.Unlock()
 		gat.readCond.Broadcast()
 	}
 }
@@ -170,19 +180,23 @@ func (gat *Gateway) Wait() {
 
 // Bytes dumps all available bytes from the gateway
 func (gat *Gateway) Bytes() (b []byte) {
+	gat.bufMutex.Lock()
 	b = gat.buf.Bytes()
+	gat.bufMutex.Unlock()
 	gat.buf.Reset()
 	return b
 }
 
 func (gat *Gateway) Read(b []byte) (ln int, err error) {
 	gat.Wait()
+	gat.bufMutex.Lock()
+	defer gat.bufMutex.Unlock()
 	return gat.buf.Read(b)
 }
 
 func (gat *Gateway) Write(b []byte) (ln int, err error) {
 	log.Println("Write from ", gat.ID, "to", gat.child)
-	fn := gat.master.registry[gat.child]
+	fn := gat.master.getFuncOrGateway(gat.child)
 	msg := comms_proto.Message{
 		To:   gat.child,
 		From: gat.ID,
@@ -221,16 +235,34 @@ func (m *Master) RegisterFunctionName(name, location string) {
 }
 
 // SpawnFunction creates a starts a function with a provided address
-func (m *Master) SpawnFunction(name string, parent uint64, addr uint64) {
+func (m *Master) SpawnFunction(name string, parent uint64, addr uint64) error {
 	fn := m.NewFunction(m.functions[name], parent, &addr)
-	fn.Start()
+	return fn.Start()
 }
 
-// Stop a function and remove it from the registry
+// StopFunction stops a function and removes it from the registry
 func (m *Master) StopFunction(fn *Function) {
 	fn.Stop()
 	// TODO: not threadsafe?
-	delete(m.registry, fn.addr)
+	m.delFuncOrGateway(fn.addr)
+}
+
+func (m *Master) getFuncOrGateway(addr uint64) funcOrGateway {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	fog, _ := m.registry.Load(addr)
+	return fog.(funcOrGateway)
+}
+func (m *Master) addFuncOrGateway(addr uint64, fog funcOrGateway) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.registry.Store(addr, fog)
+}
+
+func (m *Master) delFuncOrGateway(addr uint64) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.registry.Delete(addr)
 }
 
 // NewFunction creates and initializes a new function, it doesn't start until function.Start is run
@@ -241,45 +273,58 @@ func (m *Master) NewFunction(location string, parent uint64, addr *uint64) (fn *
 	}
 	fn = &Function{addr: *addr}
 	fn.connWait.Add(1)
-	cmd := exec.Command("embly-wrapper")
+	cmd := exec.Command(EmblyWrapperExecutable)
 	log.Println("NewFunction location", location)
 	cmd.Stdout = textio.NewPrefixWriter(os.Stdout, "embly stdout: ")
 	cmd.Stderr = textio.NewPrefixWriter(os.Stderr, "embly stderr: ")
 	cmd.Env = envVars(map[string]string{
 		"EMBLY_ADDR":     fmt.Sprintf("%d", fn.addr),
+		"EMBLY_SOCKET":   SockAddr,
 		"EMBLY_MODULE":   location,
 		"RUST_BACKTRACE": "1",
 		"RUST_LOG":       "embly_wrapper",
 	})
 	fn.cmd = cmd
 	fn.parent = parent
-	m.registry[fn.addr] = fn
+	m.addFuncOrGateway(fn.addr, fn)
+	return
+}
+
+func (m *Master) functionStartProcess(conn net.Conn) (err error) {
+	addrBytes := make([]byte, 8)
+	ln, err := conn.Read(addrBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if ln != 8 {
+		log.Fatalf("incorrect read length %d", ln)
+	}
+	addr := binary.LittleEndian.Uint64(addrBytes)
+	fnOrG := m.getFuncOrGateway(addr)
+	// we don't get unix messages from gateways
+	fn := fnOrG.(*Function)
+
+	msg := comms_proto.Message{
+		YourAddress:   addr,
+		ParentAddress: fn.parent,
+	}
+
+	if err := WriteMessage(conn, msg); err != nil {
+		log.Println(err)
+	}
+	fn.RegisterConn(conn)
 	return
 }
 
 // Start starts listening on ths unix socket and will let fns communicate
-func (m *Master) Start() {
-	m.unixListen(func(conn net.Conn) {
-		addrBytes := make([]byte, 8)
-		conn.Read(addrBytes)
-		addr := binary.LittleEndian.Uint64(addrBytes)
-		fnOrG := m.registry[addr]
-		fn := fnOrG.(*Function)
-
-		msg := comms_proto.Message{
-			YourAddress:   addr,
-			ParentAddress: fn.parent,
+func (m *Master) Start() error {
+	return m.unixListen(func(conn net.Conn) {
+		if err := m.functionStartProcess(conn); err != nil {
+			log.Fatal(err)
 		}
 
-		b, err := prepareMsg(msg)
-		if err != nil {
-			log.Println(err)
-		}
-		conn.Write(b)
-		fn.RegisterConn(conn)
-		c := consumer{source: conn}
 		for {
-			msg, err := c.nextMessage()
+			msg, err := NextMessage(conn)
 			if err != nil {
 				if err == io.EOF {
 					return
@@ -290,17 +335,19 @@ func (m *Master) Start() {
 
 			log.Printf("got message %#v %s\n", msg, string(msg.Data))
 			if msg.Spawn != "" {
-				m.SpawnFunction(msg.Spawn, msg.From, msg.SpawnAddress)
+				if err := m.SpawnFunction(msg.Spawn, msg.From, msg.SpawnAddress); err != nil {
+					log.Fatal(err)
+				}
 				continue
 			}
 			// TODO: security: allows one to communicate with any function
-			recFn := m.registry[msg.To]
+			recFn := m.getFuncOrGateway(msg.To)
 			if recFn == nil {
 				log.Fatal("fn not found for id ", msg.To)
 				continue
 			}
 
-			if msg.Exiting == true {
+			if msg.Exiting {
 				log.Println("Function exiting with code", msg.Exit)
 			}
 

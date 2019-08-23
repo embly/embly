@@ -1,4 +1,0 @@
-- shutting down and cleaning up
-- error handling everywhere
-- ensure safe wasi calls
-- better test coverage and integration tests

@@ -23,8 +23,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var imageName = "maxmcd/embly-compile-rust-wasm"
-
 // Create ...
 func Create(fName, buildLocation, buildContext, destination string) (err error) {
 	var cli *client.Client
@@ -83,7 +81,6 @@ cd %s \
 && rm /opt/out/*.wasm 2> /dev/null || true \
 && cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir /opt/out \
 && wasm-strip /opt/out/*.wasm \
-&& ls -lah /opt/out/*.wasm \
 && $(mv /opt/out/*.wasm /opt/out/%s 2> /dev/null || true)
 	`, filepath.Join("/opt/context", relLocation), outName)}); err != nil {
 		err = errors.WithStack(err)
@@ -153,8 +150,8 @@ func execInContainerAndWait(ctx context.Context, cli *client.Client, containerNa
 	}
 
 	_, err = stdcopy.StdCopy(
-		textio.NewPrefixWriter(os.Stdout, "stdout: "),
-		textio.NewPrefixWriter(os.Stderr, "stderr: "),
+		textio.NewPrefixWriter(os.Stdout, "build stdout: "),
+		textio.NewPrefixWriter(os.Stderr, "build stderr: "),
 		hr.Reader)
 	hr.Close()
 

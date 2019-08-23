@@ -71,7 +71,6 @@ func (pg *projectGateway) getFunction(emblyCtx *emblyBinContext) projectFunction
 }
 
 func main() {
-	log.SetFlags(log.Llongfile | log.LstdFlags)
 	if err := runMain(); err != nil {
 		log.Println("Error running embly: ", err)
 		os.Exit(1)
@@ -82,6 +81,13 @@ func runMain() (err error) {
 	emblyCtx := emblyBinContext{}
 	emblyCtx.master = comms.NewMaster()
 	emblyCtx.parseFlags()
+
+	if emblyCtx.flags.verbose {
+		log.SetFlags(log.Llongfile | log.LstdFlags)
+	} else {
+		log.SetOutput(ioutil.Discard)
+	}
+
 	switch emblyCtx.flags.command {
 	case "start":
 		if err = emblyCtx.getEmblyProjectFile(); err != nil {
@@ -119,6 +125,7 @@ func (emblyCtx *emblyBinContext) printUsage() {
 	flag.PrintDefaults()
 	fmt.Println("\nCommands:")
 	fmt.Println("  start\trun this thing")
+	fmt.Println("  new\tcreate a new embly project")
 }
 
 func (emblyCtx *emblyBinContext) getEmblyProjectFile() (err error) {
@@ -203,7 +210,7 @@ func (emblyCtx *emblyBinContext) launchHTTPGateway(g projectGateway) (err error)
 			emblyCtx.master.StopFunction(masterFn)
 		}),
 	}
-	log.Printf("HTTP gateway '%s' listening on port %d\n", g.Name, g.Port)
+	fmt.Printf("HTTP gateway '%s' listening on port %d\n", g.Name, g.Port)
 	go server.ListenAndServe()
 	return nil
 }
@@ -231,7 +238,7 @@ func (emblyCtx *emblyBinContext) launchTCPGateway(g projectGateway) (err error) 
 	if err != nil {
 		return err
 	}
-	log.Printf("TCP gateway '%s' listening on port %d\n", g.Name, g.Port)
+	fmt.Printf("TCP gateway '%s' listening on port %d\n", g.Name, g.Port)
 	go func() {
 		for {
 			conn, err := listener.Accept()

@@ -9,4 +9,4 @@ COPY go.sum go.sum
 RUN go mod download
 
 COPY . .
-RUN go test $(go list ./... | grep -v models)
+RUN go test -race $(go list ./... | grep -v models)
