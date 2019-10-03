@@ -11,28 +11,27 @@
 #![deny(clippy::all)]
 
 use bimap::BidirectionalMap;
-use error::Result;
-use lucet_wasi;
-use protobuf::parse_from_bytes;
-use protobuf::Message as _;
-use protos::comms::Message;
-use std::collections::HashMap;
-use std::collections::VecDeque;
-use std::io::prelude::*;
-use std::os::unix::net::UnixStream;
-use std::sync::mpsc::{channel, Receiver};
-use std::sync::Arc;
-use std::{cmp, env, thread, time};
-
+use error::{Error, Result};
 use log::debug;
 use lucet_runtime::lucet_hostcalls;
 use lucet_runtime::vmctx::Vmctx;
 use lucet_runtime::{DlModule, Limits, MmapRegion, Module, Region};
 use lucet_runtime_internals::module::ModuleInternal;
 use lucet_runtime_internals::val;
+use lucet_wasi;
 use lucet_wasi::{host, memory, wasm32, WasiCtxBuilder};
+use protobuf::parse_from_bytes;
+use protobuf::Message as _;
+use protos::comms::{Message, Startup, DB};
+use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::ffi::OsStr;
+use std::io::prelude::*;
+use std::os::unix::net::UnixStream;
 use std::os::unix::prelude::OsStrExt;
+use std::sync::mpsc::{channel, Receiver};
+use std::sync::Arc;
+use std::{cmp, env, thread, time};
 
 mod bimap;
 mod error;
@@ -122,7 +121,7 @@ fn _events(
     ln: wasm32::uintptr_t,
 ) -> Result<()> {
     let mut ctx = vmctx.get_embed_ctx_mut::<EmblyCtx>();
-    let timeout = if non_blocking != 0 {
+    let timeout = if non_blocking == 0 {
         Some(time::Duration::new(timeout_s, timeout_ns))
     } else {
         None
@@ -195,6 +194,7 @@ struct EmblyCtx {
     stream_writer: UnixStream,
     address_map: BidirectionalMap<i32, u64>,
     read_buffers: HashMap<i32, VecDeque<Message>>,
+    databases: HashMap<String, DB>,
     address_count: i32,
     address: u64,
     parent_address: u64,
@@ -207,6 +207,7 @@ impl EmblyCtx {
         stream_writer: UnixStream,
         address: u64,
         parent_address: u64,
+        mut startup: Startup,
     ) -> Self {
         let address_map = BidirectionalMap::new();
         let mut ctx = Self {
@@ -217,9 +218,14 @@ impl EmblyCtx {
             parent_address,
             address_count: 0,
             read_buffers: HashMap::new(),
+            databases: HashMap::new(),
             pending_events: Vec::new(),
         };
         ctx.add_address(parent_address);
+
+        for db in startup.take_dbs().into_iter() {
+            ctx.databases.insert(db.name.clone(), db);
+        }
         ctx
     }
 
@@ -245,6 +251,12 @@ impl EmblyCtx {
                 return Ok(0);
             }
             let msg = queue.get_mut(0).expect("there should be something here");
+            if msg.error != 0 {
+                // TODO: actually create the correct io error
+                return Err(Error::Io(std::io::Error::from(
+                    std::io::ErrorKind::AddrNotAvailable,
+                )));
+            }
             let msg_data_ln = msg.get_data().len();
             let to_drain = cmp::min(buf.len(), msg_data_ln);
             let part: Vec<u8> = msg.mut_data().drain(..to_drain).collect();
@@ -286,14 +298,12 @@ impl EmblyCtx {
         if new.is_empty() {
             if let Some(dur) = timeout {
                 if let Ok(msg) = self.receiver.recv_timeout(dur) {
-                    new.push(msg) // block forever
-                } // block forever
-            } else {
-                // block forever
-                // if no timeout is given we block fore                // block foreverver
-                if let Ok(msg) = self.receiver.recv() {
                     new.push(msg)
                 }
+            } else {
+                // if no timeout is given we block forever
+                let msg = self.receiver.recv()?;
+                new.push(msg);
             }
         }
         for msg in new.drain(..) {
@@ -329,19 +339,20 @@ impl EmblyCtx {
     }
 
     fn spawn(&mut self, name: &str) -> Result<i32> {
+        let spawn_addr = rand::random::<u64>();
+        let addr = self.add_address(spawn_addr);
+
         let mut msg = Message::new();
         msg.set_spawn(name.to_string());
         msg.set_to(self.parent_address);
         msg.set_from(self.address);
 
-        let spawn_addr = rand::random::<u64>();
-        let addr = self.add_address(spawn_addr);
         msg.set_spawn_address(spawn_addr);
 
         // TODO! for now we generate the address ourselves here. This is just the easiest
         // because the function immediately knows where to send bytes to and the master
         // will receive events in order and be able to sort it out. Alternatively this
-        // function would need be issues addresses to allocate or wait for a response
+        // function would need be issued addresses to allocate or wait for a response
 
         self.write_msg(msg)?;
         Ok(addr)
@@ -391,7 +402,6 @@ fn main() -> Result<()> {
         env::var("EMBLY_MODULE").expect("EMBLY_MODULE environment variable should be available");
 
     let module = DlModule::load(&embly_module)?;
-
     // TODO: support memory constraints
     let min_globals_size = module.globals().len() * std::mem::size_of::<u64>();
     let globals_size = ((min_globals_size + 4096 - 1) / 4096) * 4096;
@@ -404,8 +414,12 @@ fn main() -> Result<()> {
             heap_address_space_size: 8_589_934_592,
         },
     )?;
-    let ctx = WasiCtxBuilder::new().inherit_stdio();
 
+    // TODO: likely remove inherit_env
+    let ctx = WasiCtxBuilder::new()
+        .inherit_stdio()
+        .inherit_env()
+        .env("RUST_BACKTRACE", "1");
     let mut stream_reader = UnixStream::connect("/tmp/embly.sock")?;
     let stream_writer = stream_reader.try_clone()?;
     let mut stream_closer = stream_reader.try_clone()?;
@@ -421,7 +435,7 @@ fn main() -> Result<()> {
         sender.send(msg).unwrap();
     });
 
-    let msg: Message = receiver.recv()?;
+    let mut msg: Message = receiver.recv()?;
     debug!("got first message {:?}", msg);
     if msg.parent_address == 0 || msg.your_address == 0 {
         return Err(error::Error::InvalidStartup(msg));
@@ -430,11 +444,15 @@ fn main() -> Result<()> {
     if msg.your_address != addr {
         panic!("addr doesn't match {} {}", addr, msg.your_address)
     }
-
     let parent_address = msg.parent_address;
     let your_address = msg.your_address;
-    let embly_ctx = EmblyCtx::new(receiver, stream_writer, your_address, parent_address);
-
+    let embly_ctx = EmblyCtx::new(
+        receiver,
+        stream_writer,
+        your_address,
+        parent_address,
+        msg.take_startup(),
+    );
     let mut inst = region
         .new_instance_builder(module as Arc<dyn Module>)
         .with_embed_ctx(ctx.build().expect("WASI ctx can be created"))
@@ -475,7 +493,7 @@ mod tests {
     fn new_ctx() -> Result<(EmblyCtx, mpsc::Sender<Message>, UnixStream)> {
         let (sock1, sock2) = UnixStream::pair()?;
         let (sender, receiver) = channel();
-        let ctx = EmblyCtx::new(receiver, sock1, FUNC_ADDRESS, MASTER);
+        let ctx = EmblyCtx::new(receiver, sock1, FUNC_ADDRESS, MASTER, Startup::new());
         Ok((ctx, sender, sock2))
     }
 

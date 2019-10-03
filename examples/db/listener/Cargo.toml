@@ -1,0 +1,25 @@
+[package]
+name = "listener"
+version = "0.1.0"
+authors = ["maxmcd <max.t.mcdonnell@gmail.com>"]
+edition = "2018"
+build = false
+
+[dependencies]
+embly = {path = "../../../embly-rs"}
+protobuf = "~2"
+protoc-rust = { version = "2.0", optional = true }
+vinyl-embly = { path = "../../../../go/src/github.com/embly/vinyl/vinyl-rs-embly/"}
+
+[features]
+build_protos = ["protoc-rust"]
+
+# cargo run --features="build_protos" --bin proto
+[[bin]]
+name = "proto"
+path = "build.rs"
+required-features = ["build_protos"]  # only needed for build-dependencies
+
+
+[profile.release]
+debug = true

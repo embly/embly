@@ -10,3 +10,4 @@ RUN go mod download
 
 COPY . .
 RUN go test -race $(go list ./... | grep -v models)
+

@@ -1,12 +1,11 @@
 extern crate embly;
 
-use embly::error::Result;
 use embly::http;
 use embly::http::{Body, Request, ResponseWriter};
-use std::io::Read;
-use std::io::Write;
+use embly::prelude::*;
+use embly::Error;
 
-fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
+fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
     let mut hello = embly::spawn_function("hello")?;
     let mut buffer = Vec::new();
     hello.wait()?;
@@ -18,6 +17,6 @@ fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     http::run(execute)
 }

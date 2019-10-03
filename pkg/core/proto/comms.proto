@@ -1,0 +1,40 @@
+syntax = "proto3";
+package comms;
+
+
+message Message {
+  uint64 to = 1;
+  uint64 from = 2;
+  bytes data = 3;
+
+  string spawn = 4;
+  uint64 spawn_address = 5;
+
+  bool kill = 6;
+
+  bool exiting = 7;
+  int32 exit = 8;
+
+  uint64 your_address = 9;
+  uint64 parent_address = 10;
+
+  int32 error = 11;
+
+  Startup startup = 12;
+}
+
+
+message Startup {
+  string module = 1;
+  uint64 addr = 2;
+  uint64 parent = 3;
+  repeated DB dbs = 4;
+}
+
+
+message DB {
+  string type = 1;
+  string name = 2;
+  string connection = 3;
+  string token = 4;
+}

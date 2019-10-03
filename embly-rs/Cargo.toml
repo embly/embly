@@ -1,6 +1,6 @@
 [package]
 name = "embly"
-version = "0.0.2"
+version = "0.0.4"
 authors = ["maxmcd <m@xmcd.me>"]
 edition = "2018"
 description = "Library for running functions on embly"
@@ -14,5 +14,10 @@ license = "MIT"
 http = "0.1.17"
 httparse = "1.3.4"
 lazy_static = "1.3.0"
+failure = {version = "~0.1", features = ["std"], default-features = false}
+futures-preview = {version = "=0.3.0-alpha.18", optional = true} 
 
 [lib]
+
+[features]
+build_protos = ["futures-preview"]

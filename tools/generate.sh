@@ -9,6 +9,6 @@ cd embly-wrapper-rs
 cargo build
 
 cd ..
-cd pkg/comms
+cd pkg/core
 
 go generate

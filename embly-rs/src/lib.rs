@@ -35,23 +35,40 @@
     )
 )]
 
-pub use error::Result;
-
-// not used with wasm
-#[allow(unused_imports)]
-use std::cmp;
-
+pub use failure::Error;
 use std::{io, time};
 pub mod error;
 pub mod http;
+
+#[cfg(feature = "futures")]
+use futures::future::Future;
+#[cfg(feature = "futures")]
+use futures::task::{Context, Poll, Waker};
+#[cfg(feature = "futures")]
+use std::pin::Pin;
+
+// use std::collections::HashMap;
+
+pub mod prelude {
+    //! A "prelude" for crates using the `embly` crate
+    //!
+    pub use crate::Waitable;
+
+    #[cfg(feature = "foo")]
+    pub use futures::future::Future;
+
+    pub use std::io::Read as _;
+    pub use std::io::Write as _;
+}
+
 use std::sync::Mutex;
 #[macro_use]
 extern crate lazy_static;
 
 use std::collections::btree_set::BTreeSet;
-
 lazy_static! {
     static ref EVENT_REGISTRY: Mutex<BTreeSet<i32>> = { Mutex::new(BTreeSet::new()) };
+    // static ref EVENT_WAKER_REGISTRY: Mutex<HashMap<i32, Waker>> = { Mutex::new(HashMap::new()) };
 }
 
 /// Connections that handle communication between functions or gateways
@@ -63,12 +80,12 @@ lazy_static! {
 ///
 ///
 /// ```rust
-/// use embly::Conn;
-/// use embly::error::Result;
+/// use embly::{Conn};
+/// use embly::prelude::*;
 /// use std::io;
-/// use std::io::Read;
+/// use failure::Error;
 ///
-/// fn entrypoint(mut conn: Conn) -> Result<()> {
+/// fn entrypoint(mut conn: Conn) -> Result<(), Error> {
 ///     let mut buffer = Vec::new();
 ///     // Conn implements std::io::Read
 ///     conn.wait()?;
@@ -112,19 +129,24 @@ lazy_static! {
 #[derive(Debug)]
 pub struct Conn {
     id: i32,
-    buf: Option<Vec<u8>>,
 }
+
+impl Copy for Conn {}
+impl Clone for Conn {
+    fn clone(&self) -> Self {
+        Self { id: self.id }
+    }
+}
+
 
 /// Spawn a Function
 ///
 /// ```
 /// use embly::{Conn, spawn_function};
-/// use embly::error::Result;
-/// use std::io;
-/// use std::io::Read;
-/// use std::io::Write;
+/// use embly::prelude::*;
+/// use failure::Error;
 ///
-/// fn entrypoint(conn: Conn) -> Result<()> {
+/// fn entrypoint(conn: Conn) -> Result<(), Error> {
 ///     let mut foo = spawn_function("github.com/maxmcd/foo")?;
 ///     foo.write_all("Hello".as_bytes())?;
 ///
@@ -136,16 +158,17 @@ pub struct Conn {
 ///
 /// ```
 ///
-pub fn spawn_function(name: &str) -> Result<Conn> {
-    Ok(Conn {
-        id: spawn(name)?,
-        buf: None,
-    })
+pub fn spawn_function(name: &str) -> Result<Conn, Error> {
+    Ok(Conn { id: spawn(name)? })
 }
 
 fn process_event_ids(ids: Vec<i32>) {
     let mut er = EVENT_REGISTRY.lock().unwrap();
+    // let mut ewr = EVENT_WAKER_REGISTRY.lock().unwrap();
     for id in ids {
+        // if let Some(waker) = ewr.remove(&id) {
+        //     waker.wake()
+        // }
         er.insert(id);
     }
 }
@@ -162,24 +185,78 @@ fn remove_id(id: i32) {
     er.remove(&id);
 }
 
-impl Conn {
-    /// Wait for bytes to be available to be read from this Conn.
-    ///
-    /// This will wait for the next bytes that arrive, there still might be
-    /// bytes to be read in the connection buffer.
-    pub fn wait(&self) -> Result<()> {
-        // the first call to events will check without blocking
+impl Waitable for Conn {
+    type Output = Result<(), Error>;
+
+    /// wait for it
+    fn id(&self) -> i32 {
+        self.id
+    }
+    /// asdfasdf
+    fn fetch_result(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "futures")]
+fn add_id_and_waker(id: i32, _waker: Waker) {
+    // let mut ewr = EVENT_WAKER_REGISTRY.lock().unwrap();
+    // ewr.insert(id, waker);
+}
+
+#[cfg(feature = "futures")]
+impl Future for Conn {
+    type Output = Result<(), Error>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        add_id_and_waker(self.id, cx.waker().clone());
+        let timeout = Some(time::Duration::new(0, 0));
+        let ids = events(timeout).expect("how do we handle this error");
+        process_event_ids(ids);
+        if has_id(self.id) {
+            Poll::Ready(Ok(()))
+        } else {
+            Poll::Pending
+        }
+    }
+}
+
+/// sdafsdf
+pub trait Waitable {
+    /// asdfasdf
+    type Output;
+
+    /// asdfas
+    fn id(&self) -> i32;
+    /// asdfasdf
+    fn fetch_result(&mut self) -> Self::Output;
+
+    /// asdfasdf
+    fn wait(&mut self) -> Self::Output
+    where
+        Self: Sized,
+    {
         let mut timeout = Some(time::Duration::new(0, 0));
+        let id = self.id();
         loop {
-            let ids = events(timeout)?;
+            let ids = events(timeout).expect("how do we handle this error");
             process_event_ids(ids);
-            if has_id(self.id) {
+            if has_id(id) {
                 break;
             }
             // the next call to events should block
             timeout = None;
         }
-        Ok(())
+        self.fetch_result()
+    }
+
+    /// join
+    fn join<T: Waitable>(&mut self, mut other: T) -> (Self::Output, T::Output)
+    where
+        Self: Sized,
+        T: Sized,
+    {
+        return (self.wait(), other.wait());
     }
 }
 
@@ -204,25 +281,14 @@ impl io::Write for Conn {
 #[cfg(not(target_arch = "wasm32"))]
 impl io::Read for Conn {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if let Some(ref mut selfbuf) = self.buf {
-            let amnt = cmp::min(buf.len(), selfbuf.len());
-            buf[..amnt].copy_from_slice(&selfbuf[..amnt]);
-            selfbuf.drain(..amnt);
-            Ok(amnt)
-        } else {
-            read(self.id, buf)
-        }
+        read(self.id, buf)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl io::Write for Conn {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.buf.is_some() {
-            self.buf.as_mut().unwrap().write(buf)
-        } else {
-            write(self.id, buf)
-        }
+        write(self.id, buf)
     }
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
@@ -296,14 +362,14 @@ fn write(id: i32, payload: &[u8]) -> io::Result<usize> {
     Ok(ln as usize)
 }
 
-fn spawn(name: &str) -> Result<i32> {
+fn spawn(name: &str) -> Result<i32, Error> {
     let mut id: i32 = 0;
     let id_ptr: *mut i32 = &mut id;
     error::wasi_err_to_io_err(unsafe { _spawn(name.as_ptr(), name.len() as u32, id_ptr) })?;
     Ok(id)
 }
 
-fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>> {
+fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>, Error> {
     let mut ln: i32 = 0;
     let ln_ptr: *mut i32 = &mut ln;
     let out: [i32; 10] = [0; 10];
@@ -333,25 +399,25 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>> {
 ///
 /// ```
 ///
-/// use embly::Result;
 /// use std::io;
 /// use std::io::Read;
 /// use std::io::Write;
+/// use failure::Error;
 ///
-/// fn execute(mut conn: embly::Conn) -> Result<()> {
+/// fn execute(mut conn: embly::Conn) -> Result<(), Error> {
 ///     conn.write_all(b"Hello\n")?;
 ///     let mut out = Vec::new();
 ///     conn.read_to_end(&mut out)?;
 ///     println!("{:?}", out);
 ///     Ok(())
 /// }
-/// fn main() -> Result<()> {
+/// fn main() -> Result<(), Error> {
 ///     embly::run(execute)
 /// }
 /// ```
 ///
-pub fn run(to_run: fn(Conn) -> Result<()>) -> Result<()> {
-    let c = Conn { buf: None, id: 1 };
+pub fn run(to_run: fn(Conn) -> Result<(), Error>) -> Result<(), Error> {
+    let c = Conn { id: 1 };
     // todo: do something with this error
     to_run(c)
 }

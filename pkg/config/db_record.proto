@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+// select * from user where
+message Query { repeated Where where = 3; }
+
+message Where {
+  string key = 1;
+  string value = 2;
+}

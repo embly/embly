@@ -2,15 +2,15 @@ extern crate embly;
 extern crate image;
 extern crate num_complex;
 
-use embly::error::Result;
 use embly::http;
 use embly::http::{Body, Flusher, Request, ResponseWriter};
+use embly::prelude::*;
+use embly::Error;
 use image::jpeg;
 use std::io::Write;
-
 use std::{thread, time};
 
-fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
+fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
     w.status("200")?;
 
     let boundary = "ebf0e0ed5f2263de9bf04ab6833a706a4877044378e7f740865a263b1664";
@@ -21,7 +21,7 @@ fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
     w.header("Connection", "close")?;
 
     w.flush_response()?;
-    let one_second = time::Duration::new(0, 1_000_000_000);
+    let one_second = time::Duration::new(0, 100_000_000);
     let start_time = time::SystemTime::now()
         .duration_since(time::SystemTime::UNIX_EPOCH)
         .unwrap()
@@ -50,11 +50,11 @@ fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<()> {
     }
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     http::run(execute)
 }
 
-fn gen_dot(index: u32) -> Result<Vec<u8>> {
+fn gen_dot(index: u32) -> Result<Vec<u8>, Error> {
     let imgx = 10;
     let imgy = 10;
     let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
@@ -69,7 +69,7 @@ fn gen_dot(index: u32) -> Result<Vec<u8>> {
 }
 
 #[allow(dead_code)]
-fn gen_fractial<W: Write>(mut w: W) -> Result<()> {
+fn gen_fractial<W: Write>(mut w: W) -> Result<(), Error> {
     let imgx = 400;
     let imgy = 400;
 

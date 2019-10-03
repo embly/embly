@@ -4,5 +4,5 @@
 target
 *.png
 embly_build
-
 *.out
+Cargo.lock

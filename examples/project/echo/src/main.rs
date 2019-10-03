@@ -1,12 +1,11 @@
 extern crate embly;
 extern crate rand;
 
-use embly::Result;
-use std::io::Read;
-use std::io::Write;
+use embly::prelude::*;
+use embly::Error;
 use std::time::SystemTime;
 
-fn execute(mut conn: embly::Conn) -> Result<()> {
+fn execute(mut conn: embly::Conn) -> Result<(), Error> {
     loop {
         conn.wait()?;
         let mut buffer = Vec::new();
@@ -17,6 +16,7 @@ fn execute(mut conn: embly::Conn) -> Result<()> {
         conn.write_all(&[&b"from embly: "[..], &buffer[..]].concat())?;
     }
 }
-fn main() -> Result<()> {
+
+fn main() -> Result<(), Error> {
     embly::run(execute)
 }

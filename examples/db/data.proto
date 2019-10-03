@@ -1,0 +1,10 @@
+syntax = "proto3";
+package data;
+
+
+message User {
+    int64 id = 1;
+    string username = 2;
+    string email = 3;
+    string password_hash = 4;
+}
