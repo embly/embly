@@ -168,7 +168,10 @@ func (master *Master) functionHandlerFunc(name string) func(http.ResponseWriter,
 			if _, err := masterG.Write(out); err != nil {
 				return err
 			}
-
+			if r.Body != nil {
+				// async?
+				io.Copy(masterG, r.Body)
+			}
 			hj, ok := w.(http.Hijacker)
 			if !ok {
 				return errors.New("webserver doesn't support hijacking")

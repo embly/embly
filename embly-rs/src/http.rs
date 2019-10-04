@@ -177,7 +177,7 @@ impl io::Read for Body {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if !self.read_buf.is_empty() {
             let ln = (&self.read_buf[..]).read(buf)?;
-            self.read_buf.truncate(self.read_buf.len() - ln);
+            self.read_buf.drain(0..ln);
             Ok(ln)
         } else {
             self.conn.read(buf)
@@ -199,7 +199,11 @@ impl io::Write for Body {
 
 fn build_request_from_comm(c: &mut Conn) -> Result<Request<Body>, Error> {
     c.wait()?;
-    reader_to_request(c)
+    let id = c.id;
+    let mut request = reader_to_request(c)?;
+    let body = request.body_mut();
+    body.conn.id = id;
+    Ok(request)
 }
 
 // https://github.com/hyperium/hyper/blob/da9b0319ef8d85662f66ac3bea74036b3dd3744e/src/proto/h1/role.rs#L18

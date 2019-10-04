@@ -19,4 +19,4 @@ mv ../target/release/embly-wrapper $HOME/.cargo/bin
 
 cd ../examples/mjpeg
 
-embly -d start
+embly run
