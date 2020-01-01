@@ -5,7 +5,7 @@ import (
 )
 
 func TestParseConfig(t *testing.T) {
-	f, _, err := FindConfigFile()
+	f, _, err := FindConfigFile("")
 	if err != nil {
 		t.Error(err)
 	}

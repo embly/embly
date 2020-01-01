@@ -17,9 +17,13 @@ env_logger = "0.6.2"
 [build-dependencies]
 protoc-rust = "2.0"
 
-# https://github.com/johnthagen/min-sized-rust
-[profile.release]
-opt-level = 'z' 
-lto = true
-codegen-units = 1
-panic = 'abort'
+[dev-dependencies]
+lazy_static = "1.4"
+
+
+# # https://github.com/johnthagen/min-sized-rust
+# [profile.release]
+# opt-level = 'z' 
+# lto = true
+# codegen-units = 1
+# panic = 'abort'

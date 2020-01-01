@@ -53,14 +53,14 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::DescriptorDoesntExist => write!(f, "Id doesn't exist"),
-            Error::InvalidStartup(ref msg) => write!(f, "Invalid startup message {:?}", msg),
-            Error::Io(ref e) => e.fmt(f),
-            Error::Proto(ref e) => e.fmt(f),
-            Error::MpscRecv(ref e) => e.fmt(f),
-            Error::MpscSend(ref e) => e.fmt(f),
-            Error::Lucet(ref e) => e.fmt(f),
-            Error::WasiErr(ref e) => e.fmt(f),
+            Self::DescriptorDoesntExist => write!(f, "Id doesn't exist"),
+            Self::InvalidStartup(ref msg) => write!(f, "Invalid startup message {:?}", msg),
+            Self::Io(ref e) => e.fmt(f),
+            Self::Proto(ref e) => e.fmt(f),
+            Self::MpscRecv(ref e) => e.fmt(f),
+            Self::MpscSend(ref e) => e.fmt(f),
+            Self::Lucet(ref e) => e.fmt(f),
+            Self::WasiErr(ref e) => e.fmt(f),
         }
     }
 }
@@ -68,50 +68,50 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
-            Error::DescriptorDoesntExist => None,
-            Error::InvalidStartup(_) => None,
-            Error::Io(ref e) => Some(e),
-            Error::Proto(ref e) => Some(e),
-            Error::MpscRecv(ref e) => Some(e),
-            Error::MpscSend(ref e) => Some(e),
-            Error::WasiErr(ref _e) => None,
+            Self::DescriptorDoesntExist => None,
+            Self::InvalidStartup(_) => None,
+            Self::Io(ref e) => Some(e),
+            Self::Proto(ref e) => Some(e),
+            Self::MpscRecv(ref e) => Some(e),
+            Self::MpscSend(ref e) => Some(e),
+            Self::WasiErr(ref _e) => None,
             // can't figure out how to cast failure::Error to error::Error
             // Some(e.compat()) doesn't work
-            Error::Lucet(ref _e) => None,
+            Self::Lucet(ref _e) => None,
         }
     }
 }
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
-        Error::Io(err)
+        Self::Io(err)
     }
 }
 
 impl From<u16> for Error {
     fn from(err: u16) -> Self {
-        Error::WasiErr(err)
+        Self::WasiErr(err)
     }
 }
 
 impl From<sync::mpsc::RecvError> for Error {
     fn from(err: sync::mpsc::RecvError) -> Self {
-        Error::MpscRecv(err)
+        Self::MpscRecv(err)
     }
 }
 impl From<sync::mpsc::SendError<Message>> for Error {
     fn from(err: sync::mpsc::SendError<Message>) -> Self {
-        Error::MpscSend(err)
+        Self::MpscSend(err)
     }
 }
 impl From<protobuf::error::ProtobufError> for Error {
     fn from(err: protobuf::error::ProtobufError) -> Self {
-        Error::Proto(err)
+        Self::Proto(err)
     }
 }
 
 impl From<lucet_runtime_internals::error::Error> for Error {
     fn from(err: lucet_runtime_internals::error::Error) -> Self {
-        Error::Lucet(err)
+        Self::Lucet(err)
     }
 }

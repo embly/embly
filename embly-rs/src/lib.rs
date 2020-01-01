@@ -36,18 +36,18 @@
 )]
 
 pub use failure::Error;
-use std::{io, time};
 pub mod error;
 pub mod http;
+pub mod kv;
+mod task;
 
-#[cfg(feature = "futures")]
-use futures::future::Future;
-#[cfg(feature = "futures")]
-use futures::task::{Context, Poll, Waker};
-#[cfg(feature = "futures")]
-use std::pin::Pin;
-
-// use std::collections::HashMap;
+use crate::prelude::*;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+    {io, time},
+};
 
 pub mod prelude {
     //! A "prelude" for crates using the `embly` crate
@@ -129,15 +129,36 @@ lazy_static! {
 #[derive(Debug)]
 pub struct Conn {
     id: i32,
+    polled: bool,
+}
+
+impl Conn {
+    fn new(id: i32) -> Self {
+        Self { id, polled: false }
+    }
+    /// sdfasdf
+    pub fn bytes(&mut self) -> Result<Vec<u8>, Error> {
+        let mut buffer = Vec::new();
+        self.read_to_end(&mut buffer)?;
+        Ok(buffer)
+    }
+    /// asdfasdf
+    pub fn string(&mut self) -> Result<String, Error> {
+        let mut buffer = String::new();
+        self.read_to_string(&mut buffer)?;
+        Ok(buffer)
+    }
 }
 
 impl Copy for Conn {}
 impl Clone for Conn {
     fn clone(&self) -> Self {
-        Self { id: self.id }
+        Self {
+            id: self.id,
+            polled: self.polled,
+        }
     }
 }
-
 
 /// Spawn a Function
 ///
@@ -159,7 +180,14 @@ impl Clone for Conn {
 /// ```
 ///
 pub fn spawn_function(name: &str) -> Result<Conn, Error> {
-    Ok(Conn { id: spawn(name)? })
+    Ok(Conn::new(spawn(name)?))
+}
+
+/// spawn, but then immediately send bytes along afterward
+pub fn spawn_and_send(name: &str, payload: &[u8]) -> Result<Conn, Error> {
+    let mut conn = spawn_function(name)?;
+    conn.write(&payload)?;
+    Ok(conn)
 }
 
 fn process_event_ids(ids: Vec<i32>) {
@@ -198,26 +226,39 @@ impl Waitable for Conn {
     }
 }
 
-#[cfg(feature = "futures")]
-fn add_id_and_waker(id: i32, _waker: Waker) {
-    // let mut ewr = EVENT_WAKER_REGISTRY.lock().unwrap();
-    // ewr.insert(id, waker);
-}
-
-#[cfg(feature = "futures")]
 impl Future for Conn {
     type Output = Result<(), Error>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        add_id_and_waker(self.id, cx.waker().clone());
-        let timeout = Some(time::Duration::new(0, 0));
+    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+        // Check for available events if we've never polled before, block
+        // indefinitely if we have
+        let timeout = if self.polled {
+            None
+        } else {
+            self.polled = true;
+            Some(time::Duration::new(0, 0))
+        };
         let ids = events(timeout).expect("how do we handle this error");
         process_event_ids(ids);
         if has_id(self.id) {
+            self.polled = false;
             Poll::Ready(Ok(()))
         } else {
             Poll::Pending
         }
+    }
+}
+
+fn wait_id(id: i32) {
+    let mut timeout = Some(time::Duration::new(0, 0));
+    loop {
+        let ids = events(timeout).expect("how do we handle this error");
+        process_event_ids(ids);
+        if has_id(id) {
+            break;
+        }
+        // the next call to events should block
+        timeout = None;
     }
 }
 
@@ -236,17 +277,8 @@ pub trait Waitable {
     where
         Self: Sized,
     {
-        let mut timeout = Some(time::Duration::new(0, 0));
         let id = self.id();
-        loop {
-            let ids = events(timeout).expect("how do we handle this error");
-            process_event_ids(ids);
-            if has_id(id) {
-                break;
-            }
-            // the next call to events should block
-            timeout = None;
-        }
+        wait_id(id);
         self.fetch_result()
     }
 
@@ -415,9 +447,17 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>, Error> {
 ///     embly::run(execute)
 /// }
 /// ```
-///
 pub fn run(to_run: fn(Conn) -> Result<(), Error>) -> Result<(), Error> {
-    let c = Conn { id: 1 };
+    let c = Conn::new(1);
     // todo: do something with this error
     to_run(c)
+}
+
+/// asdfasdf
+pub fn run_async<F>(to_run: fn(Conn) -> F)
+where
+    F: Future<Output = ()> + 'static,
+{
+    let c = Conn::new(1);
+    task::Task::spawn(Box::pin(to_run(c)));
 }

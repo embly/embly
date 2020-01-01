@@ -2,43 +2,39 @@ package command
 
 import (
 	"embly/pkg/build"
-	"strings"
+
+	flag "github.com/spf13/pflag"
 )
 
-func runBuild(m *meta) (co build.CompileOutput, er int) {
-	ef, err := build.FindAndValidateEmblyFile()
-	if err != nil {
-		m.ui.Error(err.Error())
-		er = 1
+func runBuild(path string) (builder *build.Builder, err error) {
+	if builder, err = build.NewBuilder(path, UI); err != nil {
 		return
 	}
-
-	co, err = build.CompileFunctions(ef, m.ui)
-	if err != nil {
-		m.ui.Error(err.Error())
-		er = 1
+	if err = builder.CompileFunctions(); err != nil {
 		return
 	}
 	return
 }
 
-type buildCommand struct {
-	*meta
+type buildCommand struct{}
+
+func (f *buildCommand) flags() *flag.FlagSet {
+	return nil
 }
 
-func (f *buildCommand) Help() string {
-	return strings.TrimSpace(`
+func (f *buildCommand) help() string {
+	return `
 Usage: embly build (<function-name>)...
 
     Build a local embly project. 
-	`)
+	`
 }
 
-func (f *buildCommand) Run(args []string) int {
-	_, er := runBuild(f.meta)
-	return er
+func (f *buildCommand) run(args []string) error {
+	_, err := runBuild("")
+	return err
 }
 
-func (f *buildCommand) Synopsis() string {
+func (f *buildCommand) synopsis() string {
 	return "Build an embly project"
 }

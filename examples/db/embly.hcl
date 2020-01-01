@@ -1,8 +1,10 @@
-
 function "listener" {
   runtime = "rust"
-  context = "./../../.."
-  path    = "./embly/examples/db/listener"
+  path    = "./listener"
+  sources = [
+    "../../../go/src/github.com/embly/vinyl/vinyl-rs-embly/",
+    "../../embly-rs",
+  ]
 }
 
 gateway {

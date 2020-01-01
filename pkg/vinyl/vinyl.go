@@ -298,7 +298,7 @@ func (db *DB) Insert(msg proto.Message) (err error) {
 	request := transport.Request{}
 	b, err := proto.Marshal(msg)
 	if err != nil {
-		errors.Wrap(err, "error marshalling proto message")
+		return errors.Wrap(err, "error marshalling proto message")
 	}
 	request.Insertions = append(request.Insertions, &transport.Insert{
 		Record: proto.MessageName(msg),

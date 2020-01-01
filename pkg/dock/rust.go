@@ -1,10 +1,12 @@
 package dock
 
 import (
+	"embly/pkg/filesystem"
 	"fmt"
 	"path/filepath"
 	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
@@ -12,8 +14,9 @@ import (
 type CompileRustSettings struct {
 	FunctionName   string
 	BuildLocation  string
-	BuildContext   string
+	ProjectRoot    string
 	DestinationDir string
+	Sources        []string
 }
 
 // CompileRustPrefix is the prefix added to the container name
@@ -26,29 +29,10 @@ func (settings *CompileRustSettings) containerName() string {
 	return CompileRustPrefix + settings.FunctionName
 }
 
-func (settings *CompileRustSettings) buildCommand() (out string, err error) {
-	var sb strings.Builder
-	sb.WriteString("cd ")
-	relativeLocation, err := filepath.Rel(settings.BuildContext, settings.BuildLocation)
-	if err != nil {
-		errors.Wrap(err, "Error finding the relative project path from the build context")
-		return
-	}
-	sb.WriteString(filepath.Join("/opt/context", relativeLocation))
-	sb.WriteString(" && cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir /opt/out")
-	out = sb.String()
-	return
-}
-
 // CompileRust starts a docker container, bind mounts a volume with the appropriate source
 // files, compiles them into wasm with cargo and copies the resulting wasm file onto
 // the host machine
 func CompileRust(settings CompileRustSettings) (err error) {
-	buildCommand, err := settings.buildCommand()
-	if err != nil {
-		return
-	}
-
 	c, err := NewClient()
 	if err != nil {
 		return
@@ -60,20 +44,40 @@ func CompileRust(settings CompileRustSettings) (err error) {
 
 	cont := c.NewContainer(settings.containerName(), CompileRustImage)
 
-	// TODO, this will never be updated if the values change, just errors on create
-	// and then uses the stale container
-	cont.Binds = map[string]string{
-		settings.BuildContext: "/opt/context",
-	}
 	cont.Cmd = []string{"sleep", "100000"}
 	cont.ExecPrefix = fmt.Sprintf("[%s]:", settings.FunctionName)
 	if err = cont.Create(); err != nil {
-
+		// TODO: assert on "already exists" error and ignore
 		// return
 	}
 	if err = cont.Start(); err != nil {
 		return
 	}
+
+	newBuildLocation, archive, err := filesystem.ZipSources(settings.ProjectRoot, settings.BuildLocation, settings.Sources)
+	if err != nil {
+		return
+	}
+
+	_ = cont.Exec("mkdir -p /opt/context") // ignore error
+	_ = cont.Exec("rm -rf /opt/context/*") // ignore error
+
+	if err = cont.client.client.CopyToContainer(
+		cont.client.ctx, cont.Name, "/opt/context", archive,
+		types.CopyToContainerOptions{
+			AllowOverwriteDirWithFile: true,
+		}); err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString("cd ")
+	sb.WriteString(filepath.Join("/opt/context/", newBuildLocation))
+	// -Zno-index-update
+	sb.WriteString(" && cargo +nightly build --target wasm32-wasi --release -Z unstable-options --out-dir /opt/out")
+	buildCommand := sb.String()
+
 	defer cont.Stop()
 	_ = cont.Exec("mkdir -p /opt/out")               // ignore error
 	_ = cont.Exec("rm /opt/out/*.wasm 2> /dev/null") // ignore error

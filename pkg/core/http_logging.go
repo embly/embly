@@ -14,7 +14,7 @@ import (
 
 func routeLogHandler(h http.Handler, ui cli.Ui, message string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ui.Info(message)
+		ui.Output(message)
 		h.ServeHTTP(w, r)
 	})
 }
@@ -22,7 +22,7 @@ func routeLogHandler(h http.Handler, ui cli.Ui, message string) http.Handler {
 func logHandler(h http.Handler, ui cli.Ui) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		ui.Info(fmt.Sprintf("Started %s \"%s\" for %s at %s",
+		ui.Info(fmt.Sprintf("\nStarted %s \"%s\" for %s at %s",
 			r.Method,
 			r.URL.Path,
 			getIP(r),
@@ -31,6 +31,23 @@ func logHandler(h http.Handler, ui cli.Ui) http.Handler {
 		h.ServeHTTP(logger, r)
 		ui.Info(fmt.Sprintf(
 			"Completed %d %s in %s\n",
+			logger.Status(),
+			http.StatusText(logger.Status()),
+			time.Now().Sub(start)),
+		)
+	})
+}
+
+func singleLineLogHandler(h http.Handler, ui cli.Ui, prefix string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		logger := makeLogger(w)
+		h.ServeHTTP(logger, r)
+		ui.Info(fmt.Sprintf(
+			"%s%s \"%s\" %d %s in %s",
+			prefix,
+			r.Method,
+			r.URL.Path,
 			logger.Status(),
 			http.StatusText(logger.Status()),
 			time.Now().Sub(start)),

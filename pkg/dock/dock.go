@@ -65,6 +65,7 @@ func (c *Client) ImageExists(image string) (exists bool, err error) {
 	if _, _, err = c.client.ImageInspectWithRaw(c.ctx, image); dockerclient.IsErrNotFound(err) {
 		return false, nil
 	} else if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 	exists = true
@@ -107,6 +108,7 @@ func (c *Client) ImageCreated(image string) (created time.Time, err error) {
 func (c *Client) PullImage(image string) (err error) {
 	readCloser, err := c.client.ImagePull(c.ctx, image, types.ImagePullOptions{})
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 	jsonmessage.DisplayJSONMessagesStream(readCloser, os.Stdout, os.Stdout.Fd(), true, nil)
@@ -148,7 +150,7 @@ func (c *Container) Create() (err error) {
 	portMap := make(nat.PortMap)
 	portSet := make(nat.PortSet)
 	for k, v := range c.Ports {
-		// support docker compose functionality here
+		// TODO: support docker compose functionality here
 		portMap[nat.Port(k)] = []nat.PortBinding{{
 			HostIP:   "127.0.0.1",
 			HostPort: v,
@@ -179,7 +181,11 @@ func (c *Container) Stop() (err error) {
 
 // Start the docker container
 func (c *Container) Start() (err error) {
-	return c.client.client.ContainerStart(c.client.ctx, c.Name, types.ContainerStartOptions{})
+	err = c.client.client.ContainerStart(c.client.ctx, c.Name, types.ContainerStartOptions{})
+	if err != nil {
+		err = errors.WithStack(err)
+	}
+	return
 }
 
 // Remove the docker container
@@ -213,6 +219,9 @@ func (c *Container) Exec(cmd string) (err error) {
 		textio.NewPrefixWriter(os.Stderr, c.ExecPrefix),
 		hr.Reader)
 	hr.Close()
+	if err != nil {
+		return
+	}
 
 	var execInspect types.ContainerExecInspect
 	if execInspect, err = cli.ContainerExecInspect(ctx, execID.ID); err != nil {

@@ -13,9 +13,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	vinyl "embly/pkg/vinyl"
 
@@ -23,24 +24,25 @@ import (
 	"github.com/pkg/errors"
 )
 
-type vinylContainer struct {
-	db        *vinyl.DB
-	container *dock.Vinyl
+type StartConfig struct {
+	Watch bool
+	Dev   bool
 }
 
 // Start starts
-func Start(co build.CompileOutput, ui cli.Ui) (err error) {
+func Start(builder *build.Builder, ui cli.Ui, startConfig StartConfig) (err error) {
 	ui.Info("Starting dev server")
 	master := NewMaster()
 	master.ui = ui
-	master.compileOutput = co
+	master.builder = builder
+	master.developmentRun = startConfig.Dev
 	master.databases = make(map[string]config.Database)
-	for name, fn := range co.Functions {
+	for name, fn := range builder.Functions {
 		master.RegisterFunctionName(name, fn.Obj)
 		ui.Output(fmt.Sprintf("Registering %s with %s", name, fn.Obj))
 	}
 
-	for _, db := range co.Config.Databases {
+	for _, db := range builder.Config.Databases {
 		ui.Info(fmt.Sprintf("Configuring database \"%s\"", db.Name))
 		v, err := dock.StartVinyl(db.Name)
 		if err != nil {
@@ -48,19 +50,22 @@ func Start(co build.CompileOutput, ui cli.Ui) (err error) {
 		}
 
 		ui.Output("Parsing file descriptor")
-		descriptor, err := dock.DescriptorForFile(filepath.Join(co.ProjectRoot, db.Definition))
+		descriptor, err := dock.DescriptorForFile(filepath.Join(builder.ProjectRoot, db.Definition))
 		if err != nil {
 			return err
 		}
 		// TODO: handle this in vinyl-go
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
-		zw.Write(descriptor)
+		if _, err := zw.Write(descriptor); err != nil {
+			return err
+		}
 		zw.Close()
 
 		metadata := db.ToMetadata()
 		metadata.Descriptor = buf.Bytes()
 
+		ui.Output("Waiting for database to start")
 		if err := v.Wait(); err != nil {
 			return err
 		}
@@ -70,24 +75,30 @@ func Start(co build.CompileOutput, ui cli.Ui) (err error) {
 		if err != nil {
 			return err
 		}
-		db.Container = v
+		ui.Output("Connected to database")
+		db.Port = v.Port
 		master.databases[db.Name] = db
 	}
 
 	go master.Start()
-	var wg sync.WaitGroup
-	wg.Add(1)
-	for _, g := range co.Config.Gateways {
+	if startConfig.Watch {
+		ui.Info("Watching for local changes")
+		if err := builder.WatchForChangesAndRebuild(); err != nil {
+			return errors.Wrap(err, "error watching for changes")
+		}
+	}
+	waitChan := make(chan struct{})
+	for _, g := range builder.Config.Gateways {
 		switch kind := g.Type; kind {
 		case "http":
-			if err := master.launchHTTPGateway(co.Config, g); err != nil {
+			if err := master.launchHTTPGateway(builder.Config, g); err != nil {
 				return err
 			}
 		default:
 			return errors.Errorf("gateway type of '%s' not available", kind)
 		}
 	}
-	wg.Wait()
+	<-waitChan
 	return nil
 }
 
@@ -221,29 +232,37 @@ func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (er
 	for _, route := range g.Routes {
 		if route.Function != "" {
 			handler.Handle(route.Path,
-				routeLogHandler(
+				logHandler(routeLogHandler(
 					http.HandlerFunc(master.functionHandlerFunc(route.Function)),
 					master.ui,
 					fmt.Sprintf("Processing by function \"%s\"", route.Function),
-				),
+				), master.ui),
 			)
-		}
-		if route.Files != "" {
+		} else if route.Files != "" {
+			file := cfg.GetFiles(route.Files)
 			filepath := filepath.Join(
-				master.compileOutput.ProjectRoot,
-				cfg.GetFiles(route.Files).Path)
+				master.builder.ProjectRoot,
+				file.Path)
+			var h http.Handler
+
+			h = http.FileServer(http.Dir(
+				filepath,
+			))
+
+			if file.LocalFileServer != "" && master.developmentRun {
+				u, err := url.Parse(file.LocalFileServer)
+				if err != nil {
+					// TODO: handle
+					panic(err)
+				}
+				h = httputil.NewSingleHostReverseProxy(u)
+			}
 
 			handler.Handle(route.Path,
-				routeLogHandler(
-					http.StripPrefix(route.Path,
-						http.FileServer(
-							http.Dir(
-								filepath,
-							),
-						),
-					),
+				singleLineLogHandler(
+					http.StripPrefix(route.Path, h),
 					master.ui,
-					fmt.Sprintf("Serving assets \"%s\"", route.Files),
+					fmt.Sprintf("[%s]: ", route.Files),
 				),
 			)
 		}
@@ -251,7 +270,7 @@ func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (er
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", g.Port),
-		Handler: logHandler(handler, master.ui),
+		Handler: handler,
 	}
 	master.ui.Info(fmt.Sprintf("HTTP gateway listening on port %d\n", g.Port))
 	go server.ListenAndServe()

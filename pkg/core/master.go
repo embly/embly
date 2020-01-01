@@ -25,12 +25,13 @@ import (
 
 // Master is the central coordinator for embly functions
 type Master struct {
-	mutex         sync.Mutex
-	registry      sync.Map
-	functions     map[string]string
-	ui            cli.Ui
-	databases     map[string]config.Database
-	compileOutput build.CompileOutput
+	mutex          sync.Mutex
+	registry       sync.Map
+	functions      map[string]string
+	ui             cli.Ui
+	databases      map[string]config.Database
+	builder        *build.Builder
+	developmentRun bool
 }
 
 type funcOrGateway interface {
@@ -212,10 +213,6 @@ func (m *Master) RegisterFunctionName(name, location string) {
 	m.functions[name] = location
 }
 
-var specialFunctions = map[string]struct{}{
-	"embly/kv_beta": struct{}{},
-}
-
 // SpawnFunction creates a starts a function with a provided address
 func (m *Master) SpawnFunction(name string, parent uint64, addr uint64, dbs []*comms_proto.DB) error {
 	fn, err := m.NewFunction(name, parent, &addr, dbs)
@@ -334,11 +331,18 @@ func (m *Master) Start() error {
 				// TODO: pass db access if it is allowed
 				if strings.HasPrefix(msg.Spawn, "embly/vinyl") {
 					if err := m.spawnVinyl(msg, conn); err != nil {
-						log.Fatal(err)
+						panic(err)
 					}
 					continue
 				}
-				if err := m.SpawnFunction(msg.Spawn, msg.From, msg.SpawnAddress, nil); err != nil {
+				if strings.HasPrefix(msg.Spawn, "embly/kv") {
+					if err := m.spawnKV(msg, conn); err != nil {
+						panic(err)
+					}
+					continue
+				}
+				// TODO: figure out function addressing, how will it work with slash "/embly/vinyl" namespacing
+				if err := m.SpawnFunction("function."+msg.Spawn, msg.From, msg.SpawnAddress, nil); err != nil {
 					recFn := m.getFuncOrGateway(msg.From)
 					if recFn != nil {
 						recFn.sendMsg(comms_proto.Message{

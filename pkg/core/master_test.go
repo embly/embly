@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	comms_proto "embly/pkg/core/proto"
+	"embly/pkg/tester"
 	"fmt"
 	"os/exec"
 	"testing"
@@ -18,7 +19,8 @@ func init() {
 	}
 }
 
-func TestBasicMaster(t *testing.T) {
+func TestBasicMaster(te *testing.T) {
+	t := tester.New(te)
 	m := NewMaster()
 	go m.Start()
 
@@ -35,7 +37,8 @@ func TestBasicMaster(t *testing.T) {
 	}
 
 	sending := []byte("it's lunchtime")
-	gat.Write(sending)
+	_, err = gat.Write(sending)
+	t.Assert().NoError(err)
 
 	buf := make([]byte, len(sending))
 	_, err = gat.Read(buf)

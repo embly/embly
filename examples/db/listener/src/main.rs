@@ -5,41 +5,45 @@ use embly::http::{Body, Request, ResponseWriter};
 use embly::prelude::*;
 use embly::Error;
 use protos::data::User;
+use std::time;
 use vinyl_embly::query::field;
 use vinyl_embly::DB;
-
 mod protos;
 
-fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
-    // ::std::env::set_var("RUST_BACKTRACE", "full");
+async fn execute(_req: Request<Body>, mut w: ResponseWriter) {
+    match execute_async(&mut w).await {
+        Ok(_) => {}
+        Err(err) => {
+            w.status(500).ok();
+            w.write(format!("{:?}", err).as_bytes()).ok();
+        }
+    }
+}
 
-    let db = DB::new("main")?;
+async fn execute_async(w: &mut ResponseWriter) -> Result<(), Error> {
+    let db = DB::new("main").await?;
     let mut user = User::new();
     user.set_id(40);
     user.set_email("max@max.com".to_string());
 
-    let mut insertion_resp = db.insert(user).expect("can insert");
+    let insertion_resp = db.insert(user);
+    let query_future = db.execute_query::<User>(field("id").equals(40 as i64));
 
-    let mut users_response = db.execute_query::<User>(field("id").equals(40 as i64))?;
+    let first_user_future = db.load_record::<User, i64>(40);
+    let _second_user_future = db.load_record::<User, i64>(30);
 
-    // .execute_query(field("email").equals("max@max.com"))?
-
-    let mut first_user_resp = db.load_record::<User, i64>(40)?;
-    let _second_user_resp = db.load_record::<User, i64>(30)?;
-
-    let users = users_response.wait()?;
+    let users = query_future.await?;
     w.write_all(format!("{:?}", users).to_string().as_bytes())?;
 
-    println!("{:?}", first_user_resp.wait()?);
+    println!("{:?}", first_user_future.await?);
 
-    insertion_resp.wait()?;
+    insertion_resp.await?;
+    // second_user_future.await?;
 
-    w.status("200")?;
     w.header("Content-Type", "text/plain")?;
-
     Ok(())
 }
 
-fn main() -> Result<(), Error> {
-    http::run(execute)
+fn main() {
+    http::run_async(execute);
 }

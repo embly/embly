@@ -23,9 +23,10 @@
 //!
 
 use crate::error::Error as EmblyError;
+use crate::task;
 use crate::Conn;
 use crate::Waitable;
-use failure::{err_msg, Error};
+use failure::Error;
 use http;
 use http::header::{HeaderName, HeaderValue};
 use http::response::Parts;
@@ -34,10 +35,12 @@ use http::HttpTryFrom;
 pub use http::Request;
 pub use http::Response;
 use httparse;
-use std::fmt::Display;
+use std::future::Future;
 use std::io;
 use std::io::Read;
 use std::io::Write;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 /// An http body
 #[derive(Debug)]
@@ -46,50 +49,90 @@ pub struct Body {
     read_buf: Vec<u8>,
 }
 
-/// An http response writer. Used to write an http response, can either be used to write
-/// a complete response, or stream a response
-pub struct ResponseWriter {
+struct Interior {
     body: Body,
     parts: Parts,
     write_buf: Vec<u8>,
+}
+
+impl Interior {
+    fn header<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
+    where
+        HeaderName: HttpTryFrom<K>,
+        HeaderValue: HttpTryFrom<V>,
+    {
+        match HeaderName::try_from(key) {
+            Ok(key) => match HeaderValue::try_from(value) {
+                Ok(value) => {
+                    self.parts.headers.insert(key, value);
+                    Ok(())
+                }
+                Err(e) => Err(EmblyError::Http(e.into()).into()),
+            },
+            Err(e) => Err(EmblyError::Http(e.into()).into()),
+        }
+    }
+}
+
+/// An http response writer. Used to write an http response, can either be used to write
+/// a complete response, or stream a response
+pub struct ResponseWriter {
+    interior: Arc<Mutex<Interior>>,
+
     // TODO: consolidate this logic
     headers_written: bool,
     function_returned: bool,
+}
+
+impl Clone for ResponseWriter {
+    fn clone(&self) -> Self {
+        Self {
+            headers_written: self.headers_written,
+            function_returned: self.function_returned,
+            interior: self.interior.clone(),
+        }
+    }
 }
 
 impl ResponseWriter {
     fn new(body: Body) -> Self {
         let (p, _) = Response::new(()).into_parts();
         Self {
-            body,
             headers_written: false,
             function_returned: false,
-            parts: p,
-            write_buf: Vec::new(),
+            interior: Arc::new(Mutex::new(Interior {
+                body: body,
+                parts: p,
+                write_buf: Vec::new(),
+            })),
         }
     }
     fn write_headers(&mut self) -> Vec<u8> {
         let mut dst: Vec<u8> = Vec::new();
 
-        if self.function_returned && !self.parts.headers.contains_key("Transfer-Encoding") {
-            self.header("Content-Length", self.write_buf.len()).unwrap();
+        let mut interior = self.interior.lock().unwrap();
+
+        if self.function_returned && !interior.parts.headers.contains_key("Transfer-Encoding") {
+            let len = interior.write_buf.len();
+            interior.header("Content-Length", len).unwrap();
         }
 
-        let init_cap = 30 + self.parts.headers.len() * AVERAGE_HEADER_SIZE;
+        let init_cap = 30 + interior.parts.headers.len() * AVERAGE_HEADER_SIZE;
         dst.reserve(init_cap);
         extend(&mut dst, b"HTTP/1.1 "); // todo: support passed version
-        extend(&mut dst, self.parts.status.as_str().as_bytes());
+        extend(&mut dst, interior.parts.status.as_str().as_bytes());
         extend(&mut dst, b" ");
         extend(
             &mut dst,
-            self.parts
+            interior
+                .parts
                 .status
                 .canonical_reason()
                 .unwrap_or("<none>")
                 .as_bytes(),
         );
         extend(&mut dst, b"\r\n");
-        for (name, values) in self.parts.headers.drain() {
+        for (name, values) in interior.parts.headers.drain() {
             for value in values {
                 extend(&mut dst, name.as_str().as_bytes());
                 extend(&mut dst, b": ");
@@ -106,16 +149,7 @@ impl ResponseWriter {
         HeaderName: HttpTryFrom<K>,
         HeaderValue: HttpTryFrom<V>,
     {
-        match HeaderName::try_from(key) {
-            Ok(key) => match HeaderValue::try_from(value) {
-                Ok(value) => {
-                    self.parts.headers.insert(key, value);
-                    Ok(())
-                }
-                Err(e) => Err(EmblyError::Http(e.into()).into()),
-            },
-            Err(e) => Err(EmblyError::Http(e.into()).into()),
-        }
+        self.interior.lock().unwrap().header(key, value)
     }
     /// set the http status for the response
     pub fn status<T>(&mut self, status: T) -> Result<(), Error>
@@ -124,7 +158,7 @@ impl ResponseWriter {
     {
         match StatusCode::try_from(status) {
             Ok(s) => {
-                self.parts.status = s;
+                self.interior.lock().unwrap().parts.status = s;
                 Ok(())
             }
             Err(e) => Err(EmblyError::Http(e.into()).into()),
@@ -137,7 +171,7 @@ impl io::Write for ResponseWriter {
     // https://github.com/golang/go/blob/20e4540e90/src/net/http/server.go#L367-L390
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         // todo: should check existing headers and see if we can start sending a response
-        self.write_buf.write(buf)
+        self.interior.lock().unwrap().write_buf.write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
@@ -161,9 +195,10 @@ impl Flusher for ResponseWriter {
             self.headers_written = true;
             out.write_all(dst)?;
         }
-        out.write_all(&self.write_buf)?;
-        self.body.write_all(&out)?;
-        self.write_buf.clear();
+        let mut interior = self.interior.lock().unwrap();
+        out.write_all(&interior.write_buf)?;
+        interior.body.write_all(&out)?;
+        interior.write_buf.clear();
         Ok(())
     }
 }
@@ -235,7 +270,7 @@ fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>, Error> {
         request.header(h.name, h.value);
     }
     Ok(request.body(Body {
-        conn: Conn { id: 0 },
+        conn: Conn::new(0),
         read_buf: buf[result.unwrap()..].to_vec(),
     })?)
 }
@@ -268,7 +303,7 @@ fn reader_to_response<R: Read>(mut c: R) -> Result<Response<Body>, Error> {
         response.header(h.name, h.value);
     }
     Ok(response.body(Body {
-        conn: Conn { id: 0 },
+        conn: Conn::new(0),
         read_buf: buf[result.unwrap()..].to_vec(),
     })?)
 }
@@ -293,30 +328,34 @@ fn reader_to_response<R: Read>(mut c: R) -> Result<Response<Body>, Error> {
 ///     run(execute)
 /// }
 /// ```
-pub fn run<E: Display>(
-    to_run: fn(Request<Body>, &mut ResponseWriter) -> Result<(), E>,
-) -> Result<(), Error> {
+pub fn run(to_run: fn(Request<Body>, &mut ResponseWriter)) {
     let function_id = 1;
-    let mut c = Conn { id: function_id };
-    let r = build_request_from_comm(&mut c)?;
+    let mut c = Conn::new(function_id);
+    let r = build_request_from_comm(&mut c).expect("http request should be valid");
     let mut resp = ResponseWriter::new(Body {
-        conn: Conn { id: function_id },
+        conn: c.clone(),
         read_buf: Vec::new(),
     });
-    let result = to_run(r, &mut resp);
-    let result_result = match result {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            let msg = format!("{}", err);
-            let err = err_msg(msg.clone());
-            resp.status("500").ok();
-            resp.write(msg.as_bytes()).ok();
-            Err(err)
-        }
-    };
+    to_run(r, &mut resp);
     resp.function_returned = true;
-    resp.flush_response()?;
-    result_result
+    resp.flush_response().expect("should be able to flush");
+}
+
+/// asdfasdf
+pub fn run_async<F>(to_run: fn(Request<Body>, ResponseWriter) -> F)
+where
+    F: Future<Output = ()> + 'static,
+{
+    let function_id = 1;
+    let mut c = Conn::new(function_id);
+    let r = build_request_from_comm(&mut c).expect("http request should be valid");
+    let mut resp = ResponseWriter::new(Body {
+        conn: c.clone(),
+        read_buf: Vec::new(),
+    });
+    task::Task::spawn(Box::pin(to_run(r, resp.clone())));
+    resp.function_returned = true;
+    resp.flush_response().expect("should be able to flush");
 }
 
 #[cfg(test)]
@@ -401,5 +440,4 @@ field1=value1&field2=value2";
     //     assert_eq!(200, res.status());
     //     Ok(())
     // }
-
 }

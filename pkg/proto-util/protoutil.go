@@ -2,6 +2,7 @@ package protoutil
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 
@@ -19,7 +20,7 @@ func WriteMessage(consumer io.Writer, msg proto.Message) (err error) {
 	b = append(size, b...)
 	ln, err := consumer.Write(b)
 	if ln != len(b) {
-		panic("didn't write everything!")
+		fmt.Println(consumer, "didn't write everything!")
 	}
 	return
 

@@ -14,6 +14,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         gcc \
+        build-essential \
         curl \
         libc6-dev \
         wget \

@@ -1,8 +1,8 @@
 package config
 
 import (
-	"embly/pkg/dock"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -71,16 +71,17 @@ type GatewayRoute struct {
 
 // Function is an embly function, the main compute primitive in Embly
 type Function struct {
-	Name    string `hcl:"name,label"`
-	Path    string `hcl:"path,attr"`
-	Context string `hcl:"context,optional"`
-	Runtime string `hcl:"runtime,attr"`
+	Name    string   `hcl:"name,label"`
+	Runtime string   `hcl:"runtime,attr"`
+	Path    string   `hcl:"path,attr"`
+	Sources []string `hcl:"sources,optional"`
 }
 
 // Files are local static assets that are served by the runtime
 type Files struct {
-	Name string `hcl:"name,label"`
-	Path string `hcl:"path,attr"`
+	Name            string `hcl:"name,label"`
+	Path            string `hcl:"path,attr"`
+	LocalFileServer string `hcl:"local_file_server,optional"`
 }
 
 // Database describes the schemas and configuration of a datastore
@@ -90,7 +91,7 @@ type Database struct {
 	Definition string           `hcl:"definition,attr"`
 	Records    []DatabaseRecord `hcl:"record,block"`
 	DB         *vinyl.DB
-	Container  *dock.Vinyl
+	Port       int
 }
 
 // ToMetadata converts a database configuration value to vinyl Metadata. Does not populate the protobuf
@@ -115,7 +116,7 @@ func (db *Database) ToMetadata() (md vinyl.Metadata) {
 
 // ConnectionString the connection string for this database type
 func (db *Database) ConnectionString() string {
-	return fmt.Sprintf("vinyl://user:pass@localhost:%d", db.Container.Port)
+	return fmt.Sprintf("vinyl://user:pass@localhost:%d", db.Port)
 }
 
 // DatabaseRecord describes a database record for a vinly database
@@ -128,11 +129,11 @@ type DatabaseRecord struct {
 // DatabaseRecordIndex is an index definition for a database record
 type DatabaseRecordIndex struct {
 	Name   string `hcl:"name,label"`
-	Unique bool   `hcl:"unique,attr"`
+	Unique bool   `hcl:"unique,optional"`
 }
 
 // ParseConfig will parse an embly.hcl file
-func ParseConfig(configFile *os.File) (cfg Config, err error) {
+func ParseConfig(configFile io.Reader) (cfg Config, err error) {
 	evalContext := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
 	}
@@ -150,16 +151,19 @@ func ParseConfig(configFile *os.File) (cfg Config, err error) {
 	}
 	_ = gohcl.DecodeBody(file.Body, nil, &cfg)
 
+	functionMap := map[string]cty.Value{}
 	for _, fn := range cfg.Functions {
-		evalContext.Variables["function"] = cty.ObjectVal(map[string]cty.Value{
-			fn.Name: cty.StringVal("function." + fn.Name),
-		})
+		functionMap[fn.Name] = cty.StringVal("function." + fn.Name)
 	}
+	evalContext.Variables["function"] = cty.ObjectVal(functionMap)
+
+	filesMap := map[string]cty.Value{}
 	for _, fn := range cfg.Files {
-		evalContext.Variables["files"] = cty.ObjectVal(map[string]cty.Value{
-			fn.Name: cty.StringVal("files." + fn.Name),
-		})
+		filesMap[fn.Name] = cty.StringVal("files." + fn.Name)
 	}
+	evalContext.Variables["files"] = cty.ObjectVal(filesMap)
+
+	// TODO: validate that static files are in the project directory
 
 	d := gohcl.DecodeBody(file.Body, evalContext, &cfg)
 	if d.HasErrors() {
@@ -183,12 +187,14 @@ func ParseConfig(configFile *os.File) (cfg Config, err error) {
 var FileName = "embly.hcl"
 
 // FindConfigFile recursively searches all parent directories for an embly.hcl file
-func FindConfigFile() (f *os.File, location string, err error) {
-	var wd string
-	if wd, err = os.Getwd(); err != nil {
+func FindConfigFile(wd string) (f *os.File, location string, err error) {
+	var currentWorkingDirectory string
+	if currentWorkingDirectory, err = os.Getwd(); err != nil {
 		err = errors.WithStack(err)
 		return
 	}
+	wd = filepath.Join(currentWorkingDirectory, wd)
+
 	for {
 		if f, err = os.Open(filepath.Join(wd, FileName)); err == nil {
 			break
@@ -200,6 +206,7 @@ func FindConfigFile() (f *os.File, location string, err error) {
 		wd = parent
 	}
 	location = wd
+
 	if f == nil {
 		err = errors.Errorf("%s not found in this directory or any parent", FileName)
 		return

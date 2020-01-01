@@ -27,10 +27,10 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             // todo: better error message
-            Error::InvalidHttpRequest => write!(f, "The http request is invalid"),
-            Error::Http(ref e) => e.fmt(f),
-            Error::Io(ref e) => e.fmt(f),
-            Error::HttpParse(ref e) => e.fmt(f),
+            Self::InvalidHttpRequest => write!(f, "The http request is invalid"),
+            Self::Http(ref e) => e.fmt(f),
+            Self::Io(ref e) => e.fmt(f),
+            Self::HttpParse(ref e) => e.fmt(f),
         }
     }
 }
@@ -38,29 +38,29 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
-            Error::InvalidHttpRequest => None,
-            Error::Http(ref e) => Some(e),
-            Error::Io(ref e) => Some(e),
-            Error::HttpParse(ref e) => Some(e),
+            Self::InvalidHttpRequest => None,
+            Self::Http(ref e) => Some(e),
+            Self::Io(ref e) => Some(e),
+            Self::HttpParse(ref e) => Some(e),
         }
     }
 }
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
-        Error::Io(err)
+        Self::Io(err)
     }
 }
 
 impl From<http::Error> for Error {
     fn from(err: http::Error) -> Self {
-        Error::Http(err)
+        Self::Http(err)
     }
 }
 
 impl From<httparse::Error> for Error {
     fn from(err: httparse::Error) -> Self {
-        Error::HttpParse(err)
+        Self::HttpParse(err)
     }
 }
 

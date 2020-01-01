@@ -1,8 +1,12 @@
 .DS_Store
 *.wat
 *.wasm
-target
+*.tar
+*.tar.gz
 *.png
-embly_build
 *.out
+*.darwin
+*.linux
+target
+embly_build
 Cargo.lock

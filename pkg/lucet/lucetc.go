@@ -72,7 +72,8 @@ func RunLucetc(bindingsLocation, wasmLocation, out string) (err error) {
 	// }
 	cmd := exec.Command("lucetc",
 		"--bindings", bindingsLocation,
-		"--opt-level", "2",
+		// "--opt-level", "2",
+		"--opt-level", "0",
 		"--emit", "so",
 		"--output", out,
 		wasmLocation)

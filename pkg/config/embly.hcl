@@ -7,8 +7,8 @@ dependencies = [
 ]
 
 function "encoder" {
-  path    = "./examples/mjpeg/encoder"
-  context = "../../.."
+  path    = "./encoder"
+  sources = []
   runtime = "rust"
 
   # service_definition = "${schema.proto.EncoderService}"

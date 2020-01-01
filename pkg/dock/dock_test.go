@@ -33,13 +33,11 @@ func TestCreate(t *testing.T) {
 	wd, _ := os.Getwd()
 
 	buildLocation := filepath.Join(wd, "../../examples/project/hello")
-	buildContext := filepath.Join(wd, "../../")
 	destination := filepath.Join(wd, "out.out")
 
 	if err := CompileRust(CompileRustSettings{
 		FunctionName:   "hello",
 		BuildLocation:  buildLocation,
-		BuildContext:   buildContext,
 		DestinationDir: destination,
 	}); err != nil {
 		fmt.Printf("%+v", err)

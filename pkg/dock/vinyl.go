@@ -91,8 +91,8 @@ func StartVinyl(name string) (vinyl *Vinyl, err error) {
 
 	// remove any existing containers and ignore the error
 	// TODO: bad?
-	vinyl.Cont.Stop()
-	vinyl.Cont.Remove()
+	_ = vinyl.Cont.Stop()
+	_ = vinyl.Cont.Remove()
 
 	if err = vinyl.Cont.Create(); err != nil {
 		return
