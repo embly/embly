@@ -1,0 +1,10 @@
+version: "3.5"
+
+services:
+  app:
+    image: embly/embly
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../../:/app
+    # entrypoint: embly
+    # command: dev

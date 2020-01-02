@@ -7,9 +7,9 @@ edition = "2018"
 [dependencies]
 protobuf = "2.8.1"
 rand = "0.7.0"
-lucet-wasi = "0.1.1"
-lucet-runtime = "0.1.1"
-lucet-runtime-internals = "0.1.1"
+lucet-wasi = "0.4.1"
+lucet-runtime = "0.4.1"
+lucet-runtime-internals = "0.4.1"
 failure = {version = "~0.1", features = ["std"], default-features = false}
 log = "0.4"
 env_logger = "0.6.2"
