@@ -1,9 +1,0 @@
-INFO  time: initialize in 0.25s
-WARN  no build tool detected in workspace '/home/maxm/embly'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
-INFO  shutting down Metals
-INFO  time: initialize in 0.27s
-WARN  no build tool detected in workspace '/home/maxm/embly'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
-INFO  shutting down Metals
-INFO  time: initialize in 0.35s
-WARN  no build tool detected in workspace '/home/maxm/embly'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
-INFO  shutting down Metals
