@@ -4,20 +4,26 @@
 //! response body and return an http response.
 //!
 //! ```no_run
-//! use embly::http::{run, Body, Request, ResponseWriter};
+//! use embly::http::{Body, Request, ResponseWriter};
 //! use std::io::Write;
-//! use failure::Error;
+//! use embly::Error;
 //!
-//! fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
+//! async fn execute (_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
 //!     w.write("hello world\n".as_bytes())?;
 //!     w.status("200")?;
 //!     w.header("Content-Length", "12")?;
 //!     w.header("Content-Type", "text/plain")?;
 //!     Ok(())
 //! }
+//! async fn run(req: Request<Body>, mut w: ResponseWriter) {
+//!     match execute(req, &mut w).await {
+//!         Ok(_) => {}
+//!         Err(_) => w.status("500").unwrap(),
+//!     };
+//! }
 //!
-//! fn main() -> Result<(), Error> {
-//!     run(execute)
+//! fn main() {
+//!     ::embly::http::run_async(run);
 //! }
 //! ```
 //!
@@ -25,7 +31,6 @@
 use crate::error::Error as EmblyError;
 use crate::task;
 use crate::Conn;
-use crate::Waitable;
 use failure::Error;
 use http;
 use http::header::{HeaderName, HeaderValue};
@@ -308,11 +313,10 @@ fn reader_to_response<R: Read>(mut c: R) -> Result<Response<Body>, Error> {
     })?)
 }
 
-/// Run an http handler Function
-///
+/// Run a syncronous http handler function
 /// ```no_run
 ///
-/// use embly::http::{run,Body, Request, ResponseWriter};
+/// use embly::http::{run, Body, Request, ResponseWriter};
 /// use std::io::Write;
 /// use failure::Error;
 ///
@@ -324,8 +328,13 @@ fn reader_to_response<R: Read>(mut c: R) -> Result<Response<Body>, Error> {
 ///     Ok(())
 /// }
 ///
-/// fn main() -> Result<(), Error > {
-///     run(execute)
+/// fn main() {
+///     run(|req: Request<Body>, mut w: &mut ResponseWriter| {
+///         match execute(req, &mut w) {
+///             Ok(_) => {}
+///             Err(_) => w.status("500").unwrap(),
+///         };
+///     });
 /// }
 /// ```
 pub fn run(to_run: fn(Request<Body>, &mut ResponseWriter)) {
@@ -341,7 +350,31 @@ pub fn run(to_run: fn(Request<Body>, &mut ResponseWriter)) {
     resp.flush_response().expect("should be able to flush");
 }
 
-/// asdfasdf
+/// Run an http handler Function
+///
+/// ```no_run
+/// use embly::http::{Body, Request, ResponseWriter};
+/// use std::io::Write;
+/// use embly::Error;
+///
+/// async fn execute (_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
+///     w.write("hello world\n".as_bytes())?;
+///     w.status("200")?;
+///     w.header("Content-Length", "12")?;
+///     w.header("Content-Type", "text/plain")?;
+///     Ok(())
+/// }
+/// async fn run(req: Request<Body>, mut w: ResponseWriter) {
+///     match execute(req, &mut w).await {
+///         Ok(_) => {}
+///         Err(_) => w.status("500").unwrap(),
+///     };
+/// }
+///
+/// fn main() {
+///     ::embly::http::run_async(run);
+/// }
+///
 pub fn run_async<F>(to_run: fn(Request<Body>, ResponseWriter) -> F)
 where
     F: Future<Output = ()> + 'static,

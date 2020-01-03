@@ -1,35 +1,43 @@
-//! kv is that kv
+//! A simple key value store
+//!
+//! ```rust
+//! use embly::kv;
+//! use embly::Error;
+//!
+//! async fn entrypoint() -> Result<(), Error> {
+//!     let key = b"key".to_vec();
+//!     let value = b"value".to_vec();
+//!     kv::set(&key, &value).await?;
+//!     assert_eq!(value, kv::get(&key).await?);
+//!     Ok(())
+//! }
 
 use crate::prelude::*;
 use crate::{spawn_and_send, spawn_function};
 use failure::{err_msg, Error};
 use std::future::Future;
 
-/// KV is the key value store
-pub struct KV {}
-
-impl KV {
-    /// set a value TKTKTK
-    pub fn set(key: &[u8], value: &[u8]) -> impl Future<Output = Result<(), Error>> {
-        let result = spawn_function("embly/kv/set");
-        let write_result = write_key_and_value(key, value);
-        async move {
-            let mut conn = result?;
-            let to_send = write_result?;
-            conn.write(&to_send)?;
-            Ok(())
-        }
+/// Set a binary key and value. Any existing value will be overwritten. Keys can
+/// be no larger than 10,000kb and values can be no larger than 100,000kb
+pub fn set(key: &[u8], value: &[u8]) -> impl Future<Output = Result<(), Error>> {
+    let result = spawn_function("embly/kv/set");
+    let write_result = write_key_and_value(key, value);
+    async move {
+        let mut conn = result?;
+        let to_send = write_result?;
+        conn.write(&to_send)?;
+        Ok(())
     }
-    /// yoooo
-    pub fn get(key: &[u8]) -> impl Future<Output = Result<Vec<u8>, Error>> {
-        let result = spawn_and_send("embly/kv/get", key);
-        async move {
-            let mut conn = result?;
-            conn.await?;
-            let mut out = Vec::new();
-            conn.read_to_end(&mut out)?;
-            Ok(out)
-        }
+}
+/// Get a key
+pub fn get(key: &[u8]) -> impl Future<Output = Result<Vec<u8>, Error>> {
+    let result = spawn_and_send("embly/kv/get", key);
+    async move {
+        let mut conn = result?;
+        conn.await?;
+        let mut out = Vec::new();
+        conn.read_to_end(&mut out)?;
+        Ok(out)
     }
 }
 

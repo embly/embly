@@ -52,7 +52,6 @@ use std::{
 pub mod prelude {
     //! A "prelude" for crates using the `embly` crate
     //!
-    pub use crate::Waitable;
 
     #[cfg(feature = "foo")]
     pub use futures::future::Future;
@@ -100,9 +99,9 @@ lazy_static! {
 ///
 /// ## Write Bytes
 ///
-/// Bytes can be written back. A spark is always executed by something. This could be a
-/// command line call, a load balancer or another spark. Writing to a connection will send
-/// those bytes back to the spark runner.
+/// Bytes can be written back. A function is always executed by something. This could be a
+/// command line call, a load balancer or another function. Writing to a connection will send
+/// those bytes back to the function runner.
 ///
 /// ```rust
 /// use embly::Conn;
@@ -136,17 +135,22 @@ impl Conn {
     fn new(id: i32) -> Self {
         Self { id, polled: false }
     }
-    /// sdfasdf
+
+    /// Read any bytes available on the connection and return them.
     pub fn bytes(&mut self) -> Result<Vec<u8>, Error> {
         let mut buffer = Vec::new();
         self.read_to_end(&mut buffer)?;
         Ok(buffer)
     }
-    /// asdfasdf
+    /// Read bytes available on the connection and cast them to a string
     pub fn string(&mut self) -> Result<String, Error> {
         let mut buffer = String::new();
         self.read_to_string(&mut buffer)?;
         Ok(buffer)
+    }
+    /// wait
+    pub fn wait(&self) -> Result<(), Error> {
+        wait_id(self.id)
     }
 }
 
@@ -213,19 +217,6 @@ fn remove_id(id: i32) {
     er.remove(&id);
 }
 
-impl Waitable for Conn {
-    type Output = Result<(), Error>;
-
-    /// wait for it
-    fn id(&self) -> i32 {
-        self.id
-    }
-    /// asdfasdf
-    fn fetch_result(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
 impl Future for Conn {
     type Output = Result<(), Error>;
 
@@ -249,10 +240,10 @@ impl Future for Conn {
     }
 }
 
-fn wait_id(id: i32) {
+fn wait_id(id: i32) -> Result<(), Error> {
     let mut timeout = Some(time::Duration::new(0, 0));
     loop {
-        let ids = events(timeout).expect("how do we handle this error");
+        let ids = events(timeout)?;
         process_event_ids(ids);
         if has_id(id) {
             break;
@@ -260,36 +251,7 @@ fn wait_id(id: i32) {
         // the next call to events should block
         timeout = None;
     }
-}
-
-/// sdafsdf
-pub trait Waitable {
-    /// asdfasdf
-    type Output;
-
-    /// asdfas
-    fn id(&self) -> i32;
-    /// asdfasdf
-    fn fetch_result(&mut self) -> Self::Output;
-
-    /// asdfasdf
-    fn wait(&mut self) -> Self::Output
-    where
-        Self: Sized,
-    {
-        let id = self.id();
-        wait_id(id);
-        self.fetch_result()
-    }
-
-    /// join
-    fn join<T: Waitable>(&mut self, mut other: T) -> (Self::Output, T::Output)
-    where
-        Self: Sized,
-        T: Sized,
-    {
-        return (self.wait(), other.wait());
-    }
+    Ok(())
 }
 
 #[cfg(all(target_arch = "wasm32"))]
@@ -453,7 +415,7 @@ pub fn run(to_run: fn(Conn) -> Result<(), Error>) -> Result<(), Error> {
     to_run(c)
 }
 
-/// asdfasdf
+/// Run a function asyncronously
 pub fn run_async<F>(to_run: fn(Conn) -> F)
 where
     F: Future<Output = ()> + 'static,
