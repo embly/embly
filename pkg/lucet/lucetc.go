@@ -40,6 +40,7 @@ var bindings = map[string]map[string]string{
 func WriteBindingsFile() (location string, err error) {
 	file, err := ioutil.TempFile("", "embly-bindings")
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 
@@ -89,6 +90,7 @@ func RunLucetc(bindingsLocation, wasmLocation, out string) (err error) {
 func hashFile(file string) (out string, err error) {
 	b, err := ioutil.ReadFile(file)
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 	sum := sha256.Sum256(b)
@@ -99,6 +101,7 @@ func hashFile(file string) (out string, err error) {
 func cacheDir() (dir string, err error) {
 	usr, err := user.Current()
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 	dir = filepath.Join(usr.HomeDir, "./.embly/lucet_cache")
@@ -110,7 +113,11 @@ func createHomeDir() (err error) {
 	_, err = os.Stat(dir)
 	if err != nil {
 		fmt.Println("Creating ~/.embly directory to store cached values")
-		return os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			err = errors.WithStack(err)
+			return err
+		}
 	}
 	return nil
 }
