@@ -17,7 +17,8 @@ use crate::{spawn_and_send, spawn_function};
 use failure::{err_msg, Error};
 use std::future::Future;
 
-/// Set a binary key and value. Any existing value will be overwritten. Keys can
+/// Set a binary key and value.
+/// Any existing value will be overwritten. Keys can
 /// be no larger than 10,000kb and values can be no larger than 100,000kb
 pub fn set(key: &[u8], value: &[u8]) -> impl Future<Output = Result<(), Error>> {
     let result = spawn_function("embly/kv/set");
@@ -29,6 +30,7 @@ pub fn set(key: &[u8], value: &[u8]) -> impl Future<Output = Result<(), Error>> 
         Ok(())
     }
 }
+
 /// Get a key
 pub fn get(key: &[u8]) -> impl Future<Output = Result<Vec<u8>, Error>> {
     let result = spawn_and_send("embly/kv/get", key);

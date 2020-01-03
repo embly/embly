@@ -108,7 +108,7 @@ async fn execute_async(mut conn: embly::Conn) {
 }
 
 fn main() -> Result<(), Error> {
-    embly::run_async(execute_async);
+    embly::run(execute_async);
     Ok(())
 }
 "#;
@@ -170,7 +170,7 @@ async fn execute_async(conn: embly::Conn) {
 }
 
 fn main() -> Result<(), Error> {
-    embly::run_async(execute_async);
+    embly::run(execute_async);
     Ok(())
 }    
 "#;

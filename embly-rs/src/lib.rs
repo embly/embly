@@ -1,4 +1,4 @@
-//! Embly is a lightweight application runtime. It runs small isolated functions.
+//! Embly is a serverless webassembly runtime. It runs small isolated functions.
 //! Functions can do a handful of things:
 //!
 //! - Receive bytes
@@ -6,8 +6,8 @@
 //! - Spawn a new function
 //!
 //! This library is used to access embly functionality from within a program
-//! it is intended to only be built with `wasm32-wasi` but compilation should
-//! work with other targets
+//! being run by Embly.
+//!
 
 #![deny(
     missing_docs,
@@ -52,10 +52,11 @@ use std::{
 pub mod prelude {
     //! A "prelude" for crates using the `embly` crate
     //!
-
-    #[cfg(feature = "foo")]
-    pub use futures::future::Future;
-
+    //! imports io::Read and io::Write
+    //! ```
+    //! pub use std::io::Read as _;
+    //! pub use std::io::Write as _;
+    //! ```
     pub use std::io::Read as _;
     pub use std::io::Write as _;
 }
@@ -79,10 +80,8 @@ lazy_static! {
 ///
 ///
 /// ```rust
-/// use embly::{Conn};
+/// use embly::{Conn, Error};
 /// use embly::prelude::*;
-/// use std::io;
-/// use failure::Error;
 ///
 /// fn entrypoint(mut conn: Conn) -> Result<(), Error> {
 ///     let mut buffer = Vec::new();
@@ -105,8 +104,8 @@ lazy_static! {
 ///
 /// ```rust
 /// use embly::Conn;
+/// use embly::prelude::*;
 /// use std::io;
-/// use std::io::Write;
 ///
 /// fn entrypoint(mut conn: Conn) -> io::Result<()> {
 ///     // you can call write_all to send one message
@@ -148,7 +147,29 @@ impl Conn {
         self.read_to_string(&mut buffer)?;
         Ok(buffer)
     }
-    /// wait
+    /// Wait for bytes to be available on the connection
+    /// ```
+    /// use embly::{
+    ///     Error,
+    ///     prelude::*,
+    /// };
+    /// fn run(conn: embly::Conn) -> Result<(), Error> {
+    ///     conn.wait()
+    /// }
+    /// ```
+    ///
+    /// Conn implements `Future` so better to await instead:
+    /// ```
+    /// use embly::{
+    ///     Error,
+    ///     prelude::*,
+    /// };
+    ///
+    /// async fn run(conn: embly::Conn) -> Result<(), Error> {
+    ///     conn.await
+    /// }
+    ///
+    /// ```
     pub fn wait(&self) -> Result<(), Error> {
         wait_id(self.id)
     }
@@ -392,11 +413,10 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>, Error> {
 /// Run a Function
 ///
 /// ```
-///
-/// use std::io;
-/// use std::io::Read;
-/// use std::io::Write;
-/// use failure::Error;
+/// use embly::{
+///     Error,
+///     prelude::*,
+/// };
 ///
 /// fn execute(mut conn: embly::Conn) -> Result<(), Error> {
 ///     conn.write_all(b"Hello\n")?;
@@ -405,21 +425,51 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>, Error> {
 ///     println!("{:?}", out);
 ///     Ok(())
 /// }
-/// fn main() -> Result<(), Error> {
-///     embly::run(execute)
+/// async fn run(conn: embly::Conn) {
+///     match execute(conn) {
+///        Ok(_) => {}
+///        Err(err) => {println!("got error: {}", err)}
+///     }
+/// }
+/// fn main() {
+///     embly::run(run);
 /// }
 /// ```
-pub fn run(to_run: fn(Conn) -> Result<(), Error>) -> Result<(), Error> {
-    let c = Conn::new(1);
-    // todo: do something with this error
-    to_run(c)
-}
-
-/// Run a function asyncronously
-pub fn run_async<F>(to_run: fn(Conn) -> F)
+pub fn run<F>(to_run: fn(Conn) -> F)
 where
     F: Future<Output = ()> + 'static,
 {
     let c = Conn::new(1);
     task::Task::spawn(Box::pin(to_run(c)));
+}
+
+/// Run a function and panic on error
+/// ```
+/// use embly::{
+///     Error,
+///     prelude::*,
+/// };
+///
+/// async fn execute(mut conn: embly::Conn) -> Result<(), Error> {
+///     conn.write_all(b"Hello\n")?;
+///     let mut out = Vec::new();
+///     conn.read_to_end(&mut out)?;
+///     println!("{:?}", out);
+///     Ok(())
+/// }
+/// fn main() {
+///     embly::run_catch_error(execute);
+/// }
+/// ```
+pub fn run_catch_error<F>(to_run: fn(Conn) -> F)
+where
+    F: Future<Output = Result<(), Error>> + 'static,
+{
+    let c = Conn::new(1);
+    task::Task::spawn(Box::pin(async move {
+        match to_run(c).await {
+            Ok(_) => {}
+            Err(err) => println!("got error: {}", err),
+        };
+    }));
 }
