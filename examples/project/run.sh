@@ -14,8 +14,7 @@ go install
 cd ../../
 
 cd embly-wrapper-rs
-cargo build --release
-mv ../target/release/embly-wrapper $HOME/.cargo/bin
+cargo install --force --path .
 
 cd ../examples/project
 
