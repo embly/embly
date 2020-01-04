@@ -1,3 +1,14 @@
 target
 examples
 .git
+compilers
+*.wasm
+embly_build
+*.wat
+*.wasm
+*.tar
+*.tar.gz
+*.png
+*.out
+*.darwin
+*.linux

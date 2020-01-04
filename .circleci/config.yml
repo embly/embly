@@ -1,0 +1,32 @@
+version: 2
+jobs:
+  build:
+    <<: *container-config
+    steps:
+      - checkout
+      - *docker-machine-connect
+      - run:
+          name: Greeting
+          command: |
+            echo Hello, world.
+
+references:
+  container-config: &container-config
+    docker:
+      - image: docker.io/maxmcd/circleci-docker
+    working_directory: /root/project
+    environment:
+      AWS_DEFAULT_REGION: us-west-2
+
+  docker-machine-connect: &docker-machine-connect
+    run:
+      name: Connect to docker machine
+      command: |
+        set -e
+        cd /root
+        echo $DOCKER_MACHINE_CERTS | base64 -d > certs.zip
+        unzip certs.zip
+        mkdir -p ./.docker/machine/machines
+        mv circleci-docker-machine/ .docker/machine/machines/
+        docker-machine ls
+        docker ps

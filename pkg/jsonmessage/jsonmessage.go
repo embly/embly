@@ -1,4 +1,6 @@
-package jsonmessage // import "github.com/docker/docker/pkg/jsonmessage"
+package jsonmessage
+
+// import "github.com/docker/docker/pkg/jsonmessage"
 
 // Copied from: https://github.com/docker/engine/blob/92cc603036ddadd608762a6f69e72b9b2bef651e/pkg/jsonmessage/jsonmessage.go
 // gotty would panic in certain cases and an update to docker/engine 19 threw client errors

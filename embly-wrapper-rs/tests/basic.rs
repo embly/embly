@@ -34,11 +34,10 @@ fn compile_and_create_instance(name: &str, code: &str) -> Result<(Instance, Unix
         file.write_all(code.as_bytes())?;
         // file closes
     }
-
     // this makes this test work anywhere within the embly repo, but the rust wrapper
     // won't work without the cargo compiler flags within the wrapper project
     let basic_app_path = Path::join(
-        std::env::current_exe()?.as_path(),
+        std::env::current_exe()?.as_path().parent().unwrap(),
         PathBuf::from("../../../../tests/basic_app"),
     )
     .canonicalize()
@@ -50,7 +49,8 @@ fn compile_and_create_instance(name: &str, code: &str) -> Result<(Instance, Unix
             format!(
                 "
     cd {} \
-    && cargo +nightly build \
+    && set -ex \
+    && rustup run nightly-2019-11-24 cargo build \
         --target wasm32-wasi \
         --release \
         -Z unstable-options \

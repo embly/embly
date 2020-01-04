@@ -5,4 +5,4 @@ services:
     image: embly/embly
     build:
       context: ..
-      dockerfile: dockerfiles/Dockerfile
+      dockerfile: nix/Dockerfile
