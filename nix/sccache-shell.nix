@@ -7,4 +7,5 @@ stdenv.mkDerivation {
   RUST_BACKTRACE = 1;
   RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
   CARGO_TARGET_DIR = /root/target;
+
 }
