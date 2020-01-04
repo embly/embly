@@ -1,4 +1,30 @@
 version: 2
+
+references:
+  container-config: &container-config
+    docker:
+      - image: docker.io/maxmcd/circleci-docker
+    working_directory: /root/project
+    environment:
+      AWS_DEFAULT_REGION: us-west-2
+      DOCKER_MACHINE_NAME: embly-build
+      DOCKER_CERT_PATH: /root/.docker/machine/machines/embly-build
+      DOCKER_TLS_VERIFY: 1
+      DOCKER_HOST: tcp://3.86.183.45:2376
+  docker-machine-connect: &docker-machine-connect
+    run:
+      name: Connect to docker machine
+      command: |
+        set -e
+        cd /root
+        echo $DOCKER_MACHINE | base64 -d > machine.zip
+        unzip machine.zip
+        ls -lah
+        mkdir -p ./.docker/machine/machines
+        mv embly-build/ .docker/machine/machines/
+        docker-machine ls
+        docker ps
+
 jobs:
   build:
     <<: *container-config
@@ -8,25 +34,16 @@ jobs:
       - run:
           name: Greeting
           command: |
-            echo Hello, world.
+            set -ex
+            docker build -f ./nix/nix.Dockerfile -t embly-nix .
 
-references:
-  container-config: &container-config
-    docker:
-      - image: docker.io/maxmcd/circleci-docker
-    working_directory: /root/project
-    environment:
-      AWS_DEFAULT_REGION: us-west-2
-
-  docker-machine-connect: &docker-machine-connect
-    run:
-      name: Connect to docker machine
-      command: |
-        set -e
-        cd /root
-        echo $DOCKER_MACHINE_CERTS | base64 -d > certs.zip
-        unzip certs.zip
-        mkdir -p ./.docker/machine/machines
-        mv circleci-docker-machine/ .docker/machine/machines/
-        docker-machine ls
-        docker ps
+            ./nix/run-docker.sh --run "go test ./... \
+            && cargo test \
+            && cd embly-wrapper-rs \
+            && cargo test \
+            && cd .. && cd cmd/embly && go install \
+            && cd ../.. && cd embly-wrapper-rs \
+            && cargo build --release \
+            && mv \$CARGO_TARGET_DIR/release/embly-wrapper /root/.cargo/bin \
+            && cd ../examples/project && embly build
+            "

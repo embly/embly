@@ -8,4 +8,4 @@ docker run -it \
     -v /var/run/docker.sock:/var/run/docker.sock \
     --workdir /opt \
     embly-nix:latest \
-nix-shell /opt/nix/sccache-shell.nix
+nix-shell /opt/nix/sccache-shell.nix "$@"
