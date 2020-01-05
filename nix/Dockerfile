@@ -18,20 +18,12 @@ RUN apt-get install -y binutils
 FROM rust:1.40-slim-stretch as wrapper
 RUN apt-get update && apt-get install -y python3 protobuf-compiler cmake 
 WORKDIR /opt
-COPY Cargo.toml Cargo.toml
-COPY embly-rs/Cargo.toml embly-rs/Cargo.toml
 COPY embly-wrapper-rs/Cargo.toml embly-wrapper-rs/Cargo.toml
-COPY embly-wrapper-rs/Cargo.toml embly-wrapper-rs/Cargo.toml
-COPY tests/basic_app/Cargo.toml tests/basic_app/Cargo.toml
 COPY pkg/core/proto pkg/core/proto
 RUN mkdir -p \
-    ./embly-rs/src \
     ./embly-wrapper-rs/src \
-    ./tests/basic_app/src; \
-    echo 'fn main(){ println!("hi") }' > ./embly-rs/src/lib.rs; \
-    echo 'fn main(){ println!("hi") }' > ./embly-wrapper-rs/src/main.rs \
-    echo 'fn main(){ println!("hi") }' > ./tests/basic_app/src/main.rs
-RUN cargo fetch
+    && echo 'fn main(){ println!("hi") }' > ./embly-wrapper-rs/src/main.rs 
+RUN cd embly-wrapper-rs && cargo fetch
 COPY embly-wrapper-rs embly-wrapper-rs 
 RUN cd embly-wrapper-rs && cargo build --release
 
@@ -39,7 +31,7 @@ FROM gcr.io/distroless/cc:debug
 
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=embly /go/bin/embly /bin/embly
-COPY --from=wrapper /opt/target/release/embly-wrapper /bin/embly-wrapper-rs
+COPY --from=wrapper /opt/embly-wrapper-rs/target/release/embly-wrapper /bin/embly-wrapper
 COPY --from=lucetc /usr/local/cargo/bin/lucetc /bin/lucetc
 COPY --from=lucetc /usr/bin/x86_64-linux-gnu-ld.bfd /bin/ld
 COPY --from=lucetc \

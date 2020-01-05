@@ -25,8 +25,6 @@ Usage: embly bundle
 }
 
 func (f *bundleCommand) run(args []string) (err error) {
-	f.flags()
-	_ = f.flagSet.Parse(args)
 	builder, err := build.NewBuilder("", UI)
 	if err != nil {
 		return
@@ -39,11 +37,11 @@ func (f *bundleCommand) run(args []string) (err error) {
 		return
 	}
 	if *f.includeObjectFiles {
-		if err = builder.CompileWasmToObject(); err != nil {
+		isTar := false
+		if err = builder.CompileWasmToObject(isTar); err != nil {
 			return
 		}
 	}
-
 	location := "out.tar.gz"
 	if err = builder.Bundle(location, *f.includeObjectFiles); err != nil {
 		return

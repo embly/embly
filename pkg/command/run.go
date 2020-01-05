@@ -11,11 +11,12 @@ import (
 
 type runCommand struct {
 	flagSet *flag.FlagSet
-	watch   *bool
+	host    *string
 }
 
 func (f *runCommand) flags() *flag.FlagSet {
 	f.flagSet = &flag.FlagSet{}
+	f.host = f.flagSet.String("host", "", "set the host to broadcast on")
 	return f.flagSet
 }
 func (f *runCommand) synopsis() string {
@@ -60,7 +61,8 @@ func (f *runCommand) run(args []string) (err error) {
 		if err != nil {
 			return
 		}
-		if err = builder.CompileWasmToObject(); err != nil {
+
+		if err = builder.CompileWasmToObject(isFile); err != nil {
 			return
 		}
 	} else {
@@ -76,6 +78,7 @@ func (f *runCommand) run(args []string) (err error) {
 	}
 	if err := core.Start(builder, UI, core.StartConfig{
 		Watch: false,
+		Host:  *f.host,
 	}); err != nil {
 		return err
 	}
