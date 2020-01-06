@@ -5,8 +5,9 @@ import (
 	"compress/gzip"
 	"embly/pkg/build"
 	"embly/pkg/config"
+	"embly/pkg/core/httpproto"
 	"embly/pkg/dock"
-	"embly/pkg/proxy"
+	protoutil "embly/pkg/proto-util"
 	"fmt"
 	"io"
 	"log"
@@ -173,17 +174,18 @@ func (master *Master) functionHandlerFunc(name string) func(http.ResponseWriter,
 			if err := masterFn.Start(); err != nil {
 				return err
 			}
-			out, err := proxy.DumpRequest(r)
+			respProto, err := httpproto.DumpRequest(r)
 			if err != nil {
 				w.WriteHeader(500)
 				w.Write([]byte(err.Error()))
 			}
-			if _, err := masterG.Write(out); err != nil {
+			if err := protoutil.WriteMessage(masterG, &respProto); err != nil {
 				return err
 			}
+			protoWriter := httpproto.Writer{Writer: masterG}
 			if r.Body != nil {
 				// async?
-				io.Copy(masterG, r.Body)
+				io.Copy(&protoWriter, r.Body)
 			}
 			hj, ok := w.(http.Hijacker)
 			if !ok {

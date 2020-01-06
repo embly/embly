@@ -1,0 +1,21 @@
+syntax = "proto3";
+package httpproto;
+
+message Http {
+  int32 proto_major = 1;
+  int32 proto_minor = 2;
+  string uri = 3;
+  map<string, string> headers = 4;
+  enum Method {
+    GET = 0;
+    PUT = 1;
+    POST = 2;
+    DELETE = 3;
+    PATCH = 4;
+    OPTIONS = 5;
+    TRACE = 6;
+    CONNECT = 7;
+  }
+  Method method = 5;
+  bytes body = 6;
+}

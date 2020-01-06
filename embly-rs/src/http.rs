@@ -34,6 +34,8 @@
 //!
 
 use crate::error::Error as EmblyError;
+use crate::http_proto::httpproto::Http;
+use crate::proto;
 use crate::task;
 use crate::Conn;
 use failure::Error;
@@ -56,6 +58,7 @@ use std::sync::Mutex;
 #[derive(Debug)]
 pub struct Body {
     conn: Conn,
+    content_length: Option<usize>,
     read_buf: Vec<u8>,
 }
 
@@ -259,7 +262,8 @@ impl io::Write for Body {
 fn build_request_from_comm(c: &mut Conn) -> Result<Request<Body>, Error> {
     c.wait()?;
     let id = c.id;
-    let mut request = reader_to_request(c)?;
+    let http = proto::next_message(c)?;
+    let mut request = http_proto_to_request(http);
     let body = request.body_mut();
     body.conn.id = id;
     Ok(request)
@@ -268,6 +272,23 @@ fn build_request_from_comm(c: &mut Conn) -> Result<Request<Body>, Error> {
 // https://github.com/hyperium/hyper/blob/da9b0319ef8d85662f66ac3bea74036b3dd3744e/src/proto/h1/role.rs#L18
 const MAX_HEADERS: usize = 100;
 const AVERAGE_HEADER_SIZE: usize = 30;
+
+fn http_proto_to_request(http: Http) -> Request<Body> {
+    let mut request = Request::builder();
+    request.uri(http.uri);
+    // hardcode a map?
+    request.method(format!("{:?}", http.method).as_str());
+    for (h, v) in http.headers {
+        request.header(&h, v);
+    }
+    request
+        .body(Body {
+            content_length: Some(0),
+            conn: Conn::new(0),
+            read_buf: http.body,
+        })
+        .expect("should be able to create a body")
+}
 
 fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>, Error> {
     let mut headers: Vec<httparse::Header> = vec![httparse::EMPTY_HEADER; MAX_HEADERS];
@@ -295,6 +316,7 @@ fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>, Error> {
     }
     Ok(request.body(Body {
         conn: Conn::new(0),
+        content_length: None,
         read_buf: buf[result.unwrap()..].to_vec(),
     })?)
 }
@@ -327,6 +349,7 @@ fn reader_to_response<R: Read>(mut c: R) -> Result<Response<Body>, Error> {
         response.header(h.name, h.value);
     }
     Ok(response.body(Body {
+        content_length: None,
         conn: Conn::new(0),
         read_buf: buf[result.unwrap()..].to_vec(),
     })?)
@@ -368,6 +391,7 @@ where
     let mut c = Conn::new(function_id);
     let r = build_request_from_comm(&mut c).expect("http request should be valid");
     let mut resp = ResponseWriter::new(Body {
+        content_length: None,
         conn: c.clone(),
         read_buf: Vec::new(),
     });
