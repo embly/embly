@@ -1,4 +1,4 @@
-//! Embly is a lightweight application runtime. It runs small isolated functions.
+//! Embly is a serverless webassembly runtime. It runs small isolated functions.
 //! Functions can do a handful of things:
 //!
 //! - Receive bytes
@@ -6,8 +6,8 @@
 //! - Spawn a new function
 //!
 //! This library is used to access embly functionality from within a program
-//! it is intended to only be built with `wasm32-wasi` but compilation should
-//! work with other targets
+//! being run by Embly.
+//!
 
 #![deny(
     missing_docs,
@@ -52,11 +52,11 @@ use std::{
 pub mod prelude {
     //! A "prelude" for crates using the `embly` crate
     //!
-    pub use crate::Waitable;
-
-    #[cfg(feature = "foo")]
-    pub use futures::future::Future;
-
+    //! imports io::Read and io::Write
+    //! ```
+    //! pub use std::io::Read as _;
+    //! pub use std::io::Write as _;
+    //! ```
     pub use std::io::Read as _;
     pub use std::io::Write as _;
 }
@@ -80,10 +80,8 @@ lazy_static! {
 ///
 ///
 /// ```rust
-/// use embly::{Conn};
+/// use embly::{Conn, Error};
 /// use embly::prelude::*;
-/// use std::io;
-/// use failure::Error;
 ///
 /// fn entrypoint(mut conn: Conn) -> Result<(), Error> {
 ///     let mut buffer = Vec::new();
@@ -100,14 +98,14 @@ lazy_static! {
 ///
 /// ## Write Bytes
 ///
-/// Bytes can be written back. A spark is always executed by something. This could be a
-/// command line call, a load balancer or another spark. Writing to a connection will send
-/// those bytes back to the spark runner.
+/// Bytes can be written back. A function is always executed by something. This could be a
+/// command line call, a load balancer or another function. Writing to a connection will send
+/// those bytes back to the function runner.
 ///
 /// ```rust
 /// use embly::Conn;
+/// use embly::prelude::*;
 /// use std::io;
-/// use std::io::Write;
 ///
 /// fn entrypoint(mut conn: Conn) -> io::Result<()> {
 ///     // you can call write_all to send one message
@@ -136,17 +134,44 @@ impl Conn {
     fn new(id: i32) -> Self {
         Self { id, polled: false }
     }
-    /// sdfasdf
+
+    /// Read any bytes available on the connection and return them.
     pub fn bytes(&mut self) -> Result<Vec<u8>, Error> {
         let mut buffer = Vec::new();
         self.read_to_end(&mut buffer)?;
         Ok(buffer)
     }
-    /// asdfasdf
+    /// Read bytes available on the connection and cast them to a string
     pub fn string(&mut self) -> Result<String, Error> {
         let mut buffer = String::new();
         self.read_to_string(&mut buffer)?;
         Ok(buffer)
+    }
+    /// Wait for bytes to be available on the connection
+    /// ```
+    /// use embly::{
+    ///     Error,
+    ///     prelude::*,
+    /// };
+    /// fn run(conn: embly::Conn) -> Result<(), Error> {
+    ///     conn.wait()
+    /// }
+    /// ```
+    ///
+    /// Conn implements `Future` so better to await instead:
+    /// ```
+    /// use embly::{
+    ///     Error,
+    ///     prelude::*,
+    /// };
+    ///
+    /// async fn run(conn: embly::Conn) -> Result<(), Error> {
+    ///     conn.await
+    /// }
+    ///
+    /// ```
+    pub fn wait(&self) -> Result<(), Error> {
+        wait_id(self.id)
     }
 }
 
@@ -213,19 +238,6 @@ fn remove_id(id: i32) {
     er.remove(&id);
 }
 
-impl Waitable for Conn {
-    type Output = Result<(), Error>;
-
-    /// wait for it
-    fn id(&self) -> i32 {
-        self.id
-    }
-    /// asdfasdf
-    fn fetch_result(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
 impl Future for Conn {
     type Output = Result<(), Error>;
 
@@ -249,10 +261,10 @@ impl Future for Conn {
     }
 }
 
-fn wait_id(id: i32) {
+fn wait_id(id: i32) -> Result<(), Error> {
     let mut timeout = Some(time::Duration::new(0, 0));
     loop {
-        let ids = events(timeout).expect("how do we handle this error");
+        let ids = events(timeout)?;
         process_event_ids(ids);
         if has_id(id) {
             break;
@@ -260,36 +272,7 @@ fn wait_id(id: i32) {
         // the next call to events should block
         timeout = None;
     }
-}
-
-/// sdafsdf
-pub trait Waitable {
-    /// asdfasdf
-    type Output;
-
-    /// asdfas
-    fn id(&self) -> i32;
-    /// asdfasdf
-    fn fetch_result(&mut self) -> Self::Output;
-
-    /// asdfasdf
-    fn wait(&mut self) -> Self::Output
-    where
-        Self: Sized,
-    {
-        let id = self.id();
-        wait_id(id);
-        self.fetch_result()
-    }
-
-    /// join
-    fn join<T: Waitable>(&mut self, mut other: T) -> (Self::Output, T::Output)
-    where
-        Self: Sized,
-        T: Sized,
-    {
-        return (self.wait(), other.wait());
-    }
+    Ok(())
 }
 
 #[cfg(all(target_arch = "wasm32"))]
@@ -430,11 +413,10 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>, Error> {
 /// Run a Function
 ///
 /// ```
-///
-/// use std::io;
-/// use std::io::Read;
-/// use std::io::Write;
-/// use failure::Error;
+/// use embly::{
+///     Error,
+///     prelude::*,
+/// };
 ///
 /// fn execute(mut conn: embly::Conn) -> Result<(), Error> {
 ///     conn.write_all(b"Hello\n")?;
@@ -443,21 +425,51 @@ fn events(timeout: Option<time::Duration>) -> Result<Vec<i32>, Error> {
 ///     println!("{:?}", out);
 ///     Ok(())
 /// }
-/// fn main() -> Result<(), Error> {
-///     embly::run(execute)
+/// async fn run(conn: embly::Conn) {
+///     match execute(conn) {
+///        Ok(_) => {}
+///        Err(err) => {println!("got error: {}", err)}
+///     }
+/// }
+/// fn main() {
+///     embly::run(run);
 /// }
 /// ```
-pub fn run(to_run: fn(Conn) -> Result<(), Error>) -> Result<(), Error> {
-    let c = Conn::new(1);
-    // todo: do something with this error
-    to_run(c)
-}
-
-/// asdfasdf
-pub fn run_async<F>(to_run: fn(Conn) -> F)
+pub fn run<F>(to_run: fn(Conn) -> F)
 where
     F: Future<Output = ()> + 'static,
 {
     let c = Conn::new(1);
     task::Task::spawn(Box::pin(to_run(c)));
+}
+
+/// Run a function and panic on error
+/// ```
+/// use embly::{
+///     Error,
+///     prelude::*,
+/// };
+///
+/// async fn execute(mut conn: embly::Conn) -> Result<(), Error> {
+///     conn.write_all(b"Hello\n")?;
+///     let mut out = Vec::new();
+///     conn.read_to_end(&mut out)?;
+///     println!("{:?}", out);
+///     Ok(())
+/// }
+/// fn main() {
+///     embly::run_catch_error(execute);
+/// }
+/// ```
+pub fn run_catch_error<F>(to_run: fn(Conn) -> F)
+where
+    F: Future<Output = Result<(), Error>> + 'static,
+{
+    let c = Conn::new(1);
+    task::Task::spawn(Box::pin(async move {
+        match to_run(c).await {
+            Ok(_) => {}
+            Err(err) => println!("got error: {}", err),
+        };
+    }));
 }

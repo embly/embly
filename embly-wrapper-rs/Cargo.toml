@@ -21,6 +21,7 @@ protoc-rust = "2.0"
 lazy_static = "1.4"
 
 
+[workspace]
 # # https://github.com/johnthagen/min-sized-rust
 # [profile.release]
 # opt-level = 'z' 

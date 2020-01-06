@@ -1,6 +1,5 @@
 [workspace]
 members = [
   "embly-rs",
-  "embly-wrapper-rs",
   "tests/basic_app"
 ]

@@ -195,7 +195,20 @@ func (builder *Builder) CompileFunctions() (err error) {
 }
 
 // CompileWasmToObject just takes wasm files and turns them into local object files
-func (builder *Builder) CompileWasmToObject() (err error) {
+func (builder *Builder) CompileWasmToObject(isTar bool) (err error) {
+
+	// TODO: support no building with a tar?
+	if isTar {
+		for _, fn := range builder.Config.Functions {
+			objLocation := filepath.Join(builder.emblyBuildDir(), fn.Name+"."+builder.objectExtension())
+			_, err := os.Stat(objLocation)
+			if err == nil {
+				builder.addObjFile(fn.Name, objLocation)
+			}
+		}
+		return nil
+	}
+
 	if err := builder.initBuildDirectory(); err != nil {
 		return err
 	}
@@ -239,6 +252,7 @@ func (builder *Builder) addWasmFile(name, loc string) {
 	builder.Functions["function."+name] = files
 
 }
+
 func (builder *Builder) addObjFile(name, loc string) {
 	files := builder.Functions["function."+name]
 	files.Obj = loc

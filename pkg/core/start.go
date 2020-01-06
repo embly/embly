@@ -27,6 +27,7 @@ import (
 type StartConfig struct {
 	Watch bool
 	Dev   bool
+	Host  string
 }
 
 // Start starts
@@ -34,6 +35,7 @@ func Start(builder *build.Builder, ui cli.Ui, startConfig StartConfig) (err erro
 	ui.Info("Starting dev server")
 	master := NewMaster()
 	master.ui = ui
+	master.host = startConfig.Host
 	master.builder = builder
 	master.developmentRun = startConfig.Dev
 	master.databases = make(map[string]config.Database)
@@ -257,7 +259,7 @@ func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (er
 				}
 				h = httputil.NewSingleHostReverseProxy(u)
 			}
-
+			master.ui.Info(fmt.Sprintf("Registering static files at path %s", route.Path))
 			handler.Handle(route.Path,
 				singleLineLogHandler(
 					http.StripPrefix(route.Path, h),
@@ -269,7 +271,7 @@ func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (er
 	}
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", g.Port),
+		Addr:    fmt.Sprintf("%s:%d", master.host, g.Port),
 		Handler: handler,
 	}
 	master.ui.Info(fmt.Sprintf("HTTP gateway listening on port %d\n", g.Port))

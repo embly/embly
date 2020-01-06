@@ -178,7 +178,6 @@ func (fs *FileSystem) Bundle(includeObjectFiles bool) (archive io.Reader, cfg co
 	if includeObjectFiles {
 		globs = append(globs, "/embly_build/*."+runtime.GOOS)
 	}
-
 	archive, err = fs.zip(directories, files, globs)
 	return archive, cfg, err
 }

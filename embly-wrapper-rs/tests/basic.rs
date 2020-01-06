@@ -34,15 +34,24 @@ fn compile_and_create_instance(name: &str, code: &str) -> Result<(Instance, Unix
         file.write_all(code.as_bytes())?;
         // file closes
     }
-
+    println!("{:?}", std::env::current_exe()?.as_path());
     // this makes this test work anywhere within the embly repo, but the rust wrapper
     // won't work without the cargo compiler flags within the wrapper project
-    let basic_app_path = Path::join(
-        std::env::current_exe()?.as_path(),
+
+    // TODO: support cargo_target_dir
+
+    let basic_app_path = match Path::join(
+        std::env::current_exe()?.as_path().parent().unwrap(),
         PathBuf::from("../../../../tests/basic_app"),
     )
     .canonicalize()
-    .unwrap();
+    {
+        Ok(p) => format!("{}", p.as_path().display()).to_string(),
+        Err(_) => {
+            println!("falling back to project path in a container");
+            String::from("/opt/tests/basic_app")
+        }
+    };
 
     let output = Command::new("bash")
         .args(&[
@@ -50,7 +59,8 @@ fn compile_and_create_instance(name: &str, code: &str) -> Result<(Instance, Unix
             format!(
                 "
     cd {} \
-    && cargo +nightly build \
+    && set -ex \
+    && rustup run nightly-2019-11-24 cargo build \
         --target wasm32-wasi \
         --release \
         -Z unstable-options \
@@ -61,8 +71,7 @@ fn compile_and_create_instance(name: &str, code: &str) -> Result<(Instance, Unix
         --output ../scratch/{}.out \
         ../scratch/basic_app.wasm
         ",
-                basic_app_path.as_path().display(),
-                name
+                basic_app_path, name
             )
             .as_str(),
         ])
@@ -108,7 +117,7 @@ async fn execute_async(mut conn: embly::Conn) {
 }
 
 fn main() -> Result<(), Error> {
-    embly::run_async(execute_async);
+    embly::run(execute_async);
     Ok(())
 }
 "#;
@@ -170,7 +179,7 @@ async fn execute_async(conn: embly::Conn) {
 }
 
 fn main() -> Result<(), Error> {
-    embly::run_async(execute_async);
+    embly::run(execute_async);
     Ok(())
 }    
 "#;

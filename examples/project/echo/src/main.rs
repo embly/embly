@@ -5,7 +5,7 @@ use embly::prelude::*;
 use embly::Error;
 use std::time::SystemTime;
 
-fn execute(mut conn: embly::Conn) -> Result<(), Error> {
+async fn execute(mut conn: embly::Conn) -> Result<(), Error> {
     loop {
         conn.wait()?;
         let mut buffer = Vec::new();
@@ -17,6 +17,6 @@ fn execute(mut conn: embly::Conn) -> Result<(), Error> {
     }
 }
 
-fn main() -> Result<(), Error> {
-    embly::run(execute)
+fn main() {
+    embly::run_catch_error(execute);
 }

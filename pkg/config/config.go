@@ -188,12 +188,15 @@ var FileName = "embly.hcl"
 
 // FindConfigFile recursively searches all parent directories for an embly.hcl file
 func FindConfigFile(wd string) (f *os.File, location string, err error) {
-	var currentWorkingDirectory string
-	if currentWorkingDirectory, err = os.Getwd(); err != nil {
-		err = errors.WithStack(err)
-		return
+
+	if !filepath.IsAbs(wd) {
+		var currentWorkingDirectory string
+		if currentWorkingDirectory, err = os.Getwd(); err != nil {
+			err = errors.WithStack(err)
+			return
+		}
+		wd = filepath.Join(currentWorkingDirectory, wd)
 	}
-	wd = filepath.Join(currentWorkingDirectory, wd)
 
 	for {
 		if f, err = os.Open(filepath.Join(wd, FileName)); err == nil {

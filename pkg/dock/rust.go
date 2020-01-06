@@ -26,7 +26,8 @@ var CompileRustPrefix = "embly-rust-build-"
 var CompileRustImage = "embly/compile-rust-wasm:slim"
 
 func (settings *CompileRustSettings) containerName() string {
-	return CompileRustPrefix + settings.FunctionName
+	// return CompileRustPrefix + settings.FunctionName
+	return CompileRustPrefix + "-all"
 }
 
 // CompileRust starts a docker container, bind mounts a volume with the appropriate source
