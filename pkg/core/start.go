@@ -3,23 +3,22 @@ package core
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"path/filepath"
+	"strconv"
+	"strings"
+
 	"embly/pkg/build"
 	"embly/pkg/config"
 	"embly/pkg/core/httpproto"
 	"embly/pkg/dock"
 	protoutil "embly/pkg/proto-util"
-	"fmt"
-	"io"
-	"path/filepath"
-	"strconv"
-	"strings"
-
-	"net/http"
-	"net/http/httputil"
-	"net/url"
 
 	vinyl "github.com/embly/vinyl/vinyl-go"
-
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 )

@@ -1,10 +1,11 @@
 package core
 
 import (
-	comms_proto "embly/pkg/core/proto"
-	"embly/pkg/kv"
 	"net"
 	"strings"
+
+	comms_proto "embly/pkg/core/proto"
+	"embly/pkg/kv"
 
 	"github.com/pkg/errors"
 )

@@ -41,6 +41,9 @@ wrapper_test:
 cargo_test: 
 	cargo test
 
+doc_test:
+	cargo test --doc
+
 install_rust_toolchain:	
 	rustup toolchain add nightly-2019-11-24
 	rustup target add wasm32-wasi --toolchain nightly-2019-11-24 

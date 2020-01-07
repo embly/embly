@@ -2,8 +2,9 @@ package kv
 
 import (
 	"bytes"
-	"embly/pkg/randy"
 	"testing"
+
+	"embly/pkg/randy"
 )
 
 func TestExtract(t *testing.T) {
