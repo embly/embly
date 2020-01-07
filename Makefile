@@ -32,6 +32,12 @@ all:
 build_embly:
 	make -j install_embly install_embly_wrapper
 
+build_embly_image:
+	cd nix && ./build-embly-embly.sh
+
+push_embly_image:
+	docker --config ~/.docker-embly push embly/embly
+
 test:
 	make -j wrapper_test cargo_test go_test
 
@@ -61,6 +67,9 @@ run_mjpeg_example: build_embly
 
 run_kv_example: build_embly
 	cd examples/kv && embly dev
+
+bundle_kv_example: build_embly
+	cd examples/kv && embly bundle
 
 bundle_project_example: build_embly
 	cd examples/project && embly bundle

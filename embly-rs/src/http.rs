@@ -31,7 +31,7 @@
 //!     ::embly::http::run(catch_error);
 //! }
 //! ```
-//!
+//!curl
 
 use crate::error::Error as EmblyError;
 use crate::http_proto::httpproto::{HeaderList, Http};
@@ -80,7 +80,9 @@ impl Body {
             Ok(out)
         } else {
             while self.read_count < self.content_length.unwrap() {
-                self.read_count += self.conn.read_to_end(&mut out)?;
+                let mut http = proto::next_message(&mut self.conn)?;
+                self.read_count += http.body.len();
+                out.append(&mut http.body);
             }
             Ok(out)
         }

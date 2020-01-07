@@ -276,7 +276,7 @@ func (m *Master) NewFunction(name string, parent uint64, addr *uint64, dbs []*co
 		"EMBLY_SOCKET":   SockAddr,
 		"EMBLY_MODULE":   location,
 		"RUST_BACKTRACE": "ALL",
-		"RUST_LOG":       "embly_wrapper",
+		// "RUST_LOG":       "embly_wrapper",
 	})
 	fn.cmd = cmd
 	fn.parent = parent

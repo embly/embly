@@ -29,7 +29,6 @@ func logHandler(h http.Handler, ui cli.Ui) http.Handler {
 			time.Now().Format("2006-01-02 15:04:05 -0700")))
 		logger := makeLogger(w)
 		h.ServeHTTP(logger, r)
-		fmt.Println(w.Header())
 		ui.Info(fmt.Sprintf(
 			"Completed %d %s in %s\n",
 			logger.Status(),

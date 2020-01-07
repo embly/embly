@@ -41,14 +41,10 @@ pub fn write_msg<W: io::Write>(stream: &mut W, msg: Http) -> Result<(), Error> {
 }
 
 pub fn next_message(stream: &mut Conn) -> Result<Http, Error> {
-    println!("1");
     let mut size_bytes: [u8; 4] = [0; 4];
     stream
         .read_exact(&mut size_bytes)
-        .or_else(|err: io::Error| {
-            println!("hmmmm");
-            Err(err)
-        })?;
+        .or_else(|err: io::Error| Err(err))?;
     let size = as_u32_le(&size_bytes) as usize;
     let mut read = 0;
     if size == 0 {
@@ -68,10 +64,7 @@ pub fn next_message(stream: &mut Conn) -> Result<Http, Error> {
             }
         }
     }
-    println!("3");
-    println!("{:?}", msg_bytes);
     let msg: Http = deserialize(&msg_bytes)?;
-    println!("4");
     Ok(msg)
 }
 #[cfg(test)]

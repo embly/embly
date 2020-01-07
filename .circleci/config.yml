@@ -36,8 +36,8 @@ jobs:
           command: |
             set -ex
             docker build -f ./nix/nix.Dockerfile -t embly-nix .
-            ./nix/run-docker.sh --run "go test ./... \
-            && export PATH=\$PATH:/root/.cargo/bin \
+            ./nix/run-docker.sh --run "\
+            export PATH=\$PATH:/root/.cargo/bin \
             && make build_embly \
             && make test \
             && make build_examples 

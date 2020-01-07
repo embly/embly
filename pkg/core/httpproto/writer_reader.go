@@ -1,14 +1,20 @@
 package httpproto
 
-import "io"
+import (
+	"fmt"
+	"io"
 
-import protoutil "embly/pkg/proto-util"
+	protoutil "embly/pkg/proto-util"
+)
 
 type ReadWriter struct {
 	ReadWriter io.ReadWriter
 }
 
 func (rw *ReadWriter) Write(b []byte) (ln int, err error) {
+	fmt.Println("----------------")
+	fmt.Println(string(b))
+	fmt.Println("----------------")
 	if err = protoutil.WriteMessage(rw.ReadWriter, &Http{
 		Body: b,
 	}); err != nil {
