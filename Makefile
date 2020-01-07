@@ -29,16 +29,16 @@ $(OBJDIR)/generate_comms_proto: pkg/core/proto/comms.proto
 all: 
 	make -j install_embly install_embly_wrapper generate_http_proto generate_comms_proto
 
-ci:
+build_embly:
 	make -j install_embly install_embly_wrapper
 
 test:
 	make -j wrapper_test cargo_test go_test
 
-build_examples:
+build_examples: build_embly
 	cd examples/mjpeg && embly build
 	cd examples/kv && embly build
-	# cd examples/project && embly build
+	cd examples/project && embly build
 
 go_test:
 	go test ./... -cover
@@ -56,16 +56,16 @@ install_rust_toolchain:
 	rustup toolchain add nightly-2019-11-24
 	rustup target add wasm32-wasi --toolchain nightly-2019-11-24 
 
-run_mjpeg_example: build
+run_mjpeg_example: build_embly
 	cd examples/mjpeg && embly dev
 
-run_kv_example: build
+run_kv_example: build_embly
 	cd examples/kv && embly dev
 
-bundle_project_example: build
+bundle_project_example: build_embly
 	cd examples/project && embly bundle
 
-run_project_example: build
+run_project_example: build_embly
 	cd examples/project && embly dev
 
 clean:
