@@ -38,7 +38,7 @@ jobs:
             docker build -f ./nix/nix.Dockerfile -t embly-nix .
             ./nix/run-docker.sh --run "go test ./... \
             && export PATH=\$PATH:/root/.cargo/bin \
-            && make all \
+            && make ci \
             && make test \
             && make build_examples 
             "

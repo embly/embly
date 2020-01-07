@@ -29,6 +29,9 @@ $(OBJDIR)/generate_comms_proto: pkg/core/proto/comms.proto
 all: 
 	make -j install_embly install_embly_wrapper generate_http_proto generate_comms_proto
 
+ci:
+	make -j install_embly install_embly_wrapper
+
 test:
 	make -j wrapper_test cargo_test go_test
 
