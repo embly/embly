@@ -38,12 +38,7 @@ jobs:
             docker build -f ./nix/nix.Dockerfile -t embly-nix .
             ./nix/run-docker.sh --run "go test ./... \
             && export PATH=\$PATH:/root/.cargo/bin \
-            && cargo test \
-            && cd embly-wrapper-rs \
-            && cargo test \
-            && cd .. && cd cmd/embly && go install \
-            && cd ../.. && cd embly-wrapper-rs \
-            && cargo build --release \
-            && mv \$CARGO_TARGET_DIR/release/embly-wrapper /root/.cargo/bin \
-            && cd ../examples/project && embly build
+            && make all \
+            && make test \
+            && make build_examples 
             "

@@ -6,7 +6,7 @@ OBJDIR = ./build
 
 install_embly_wrapper: $(OBJDIR)/install_embly_wrapper
 $(OBJDIR)/install_embly_wrapper: embly-wrapper-rs/* embly-wrapper-rs/src/*
-	cd embly-wrapper-rs && cargo build --release
+	cd embly-wrapper-rs && cargo install --force --path .
 	touch build/install_embly_wrapper
 
 install_embly: $(OBJDIR)/install_embly
@@ -31,6 +31,11 @@ all:
 
 test:
 	make -j wrapper_test cargo_test go_test
+
+build_examples:
+	cd examples/mjpeg && embly build
+	cd examples/kv && embly build
+	# cd examples/project && embly build
 
 go_test:
 	go test ./... -cover
