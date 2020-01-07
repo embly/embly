@@ -1,9 +1,0 @@
-
-syntax = "proto3";
-option go_package = "main";
-
-
-message User {
-    string id = 1;
-    string email = 2;
-}

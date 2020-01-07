@@ -2,15 +2,21 @@ extern crate embly;
 extern crate image;
 extern crate num_complex;
 
-use embly::http;
-use embly::http::{Body, Flusher, Request, ResponseWriter};
-use embly::prelude::*;
-use embly::Error;
-use image::jpeg;
-use std::io::Write;
-use std::{thread, time};
+use {
+    embly::{
+        http,
+        http::{Body, Flusher, Request, ResponseWriter},
+        prelude::*,
+        Error,
+    },
+    image::jpeg,
+    std::{
+        io::Write,
+        {thread, time},
+    },
+};
 
-fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
+async fn execute(_req: Request<Body>, mut w: ResponseWriter) -> Result<(), Error> {
     w.status("200")?;
 
     let boundary = "ebf0e0ed5f2263de9bf04ab6833a706a4877044378e7f740865a263b1664";
@@ -19,7 +25,7 @@ fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
         format!("multipart/x-mixed-replace; boundary={}", boundary),
     )?;
     w.header("Connection", "close")?;
-
+    w.header("Foo", "bar")?;
     w.flush_response()?;
     let one_second = time::Duration::new(0, 100_000_000);
     let start_time = time::SystemTime::now()
@@ -50,8 +56,12 @@ fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error> {
     }
 }
 
-fn main() -> Result<(), Error> {
-    http::run(execute)
+async fn catch_error(req: Request<Body>, w: ResponseWriter) {
+    execute(req, w).await.unwrap()
+}
+
+fn main() {
+    http::run(catch_error);
 }
 
 fn gen_dot(index: u32) -> Result<Vec<u8>, Error> {

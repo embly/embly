@@ -22,7 +22,7 @@ var reqWriteExcludeHeaderDump = map[string]bool{
 
 // DumpRequest dumps the http request headers
 func DumpRequest(req *http.Request) (out Http, err error) {
-	out.Headers = make(map[string]string)
+	out.Headers = make(map[string]*HeaderList)
 	reqURI := req.RequestURI
 	if reqURI == "" {
 		reqURI = req.URL.RequestURI()
@@ -39,21 +39,26 @@ func DumpRequest(req *http.Request) (out Http, err error) {
 			host = req.URL.Host
 		}
 		if host != "" {
-			out.Headers["Host"] = host
+			out.Headers["Host"] = &HeaderList{Header: []string{host}}
 		}
 	}
 
 	if len(req.TransferEncoding) > 0 {
-		out.Headers["Transfer-Encoding"] = strings.Join(req.TransferEncoding, ",")
+		out.Headers["Transfer-Encoding"] = &HeaderList{Header: []string{
+			strings.Join(req.TransferEncoding, ","),
+		}}
 	}
 	if req.Close {
-		out.Headers["Connection"] = "close"
+		out.Headers["Connection"] = &HeaderList{Header: []string{
+			"close",
+		}}
 	}
 
 	for k, vs := range req.Header {
-		for _, v := range vs {
-			out.Headers[k] = v
+		if reqWriteExcludeHeaderDump[k] {
+			continue
 		}
+		out.Headers[k] = &HeaderList{Header: vs}
 	}
 
 	return

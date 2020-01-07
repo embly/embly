@@ -10,7 +10,6 @@ import (
 	protoutil "embly/pkg/proto-util"
 	"fmt"
 	"io"
-	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -19,7 +18,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	vinyl "embly/pkg/vinyl"
+	vinyl "github.com/embly/vinyl/vinyl-go"
 
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
@@ -182,44 +181,49 @@ func (master *Master) functionHandlerFunc(name string) func(http.ResponseWriter,
 			if err := protoutil.WriteMessage(masterG, &respProto); err != nil {
 				return err
 			}
-			protoWriter := httpproto.Writer{Writer: masterG}
+			protoRW := httpproto.ReadWriter{ReadWriter: masterG}
 			if r.Body != nil {
 				// async?
-				io.Copy(&protoWriter, r.Body)
+				io.Copy(&protoRW, r.Body)
 			}
-			hj, ok := w.(http.Hijacker)
-			if !ok {
-				return errors.New("webserver doesn't support hijacking")
-			}
-			conn, _, err := hj.Hijack()
+			httpProto, err := protoRW.Next()
 			if err != nil {
 				return err
 			}
-
-			// After hijack returned errors are not written as errors
-			sw := &statusWriter{
-				writer: conn,
+			// defaults to 200 if we don't write it
+			for k, values := range httpProto.Headers {
+				for _, v := range values.Header {
+					w.Header().Add(k, v)
+				}
 			}
-			_, err = io.Copy(sw, masterG)
-			if err != nil {
-				log.Fatal(err)
+			if httpProto.Status != 0 {
+				w.WriteHeader(int(httpProto.Status))
 			}
-			if err := sw.parseHeader(); err != nil {
-				log.Fatal(err)
-			}
-			if rl, ok := w.(commonLoggingResponseWriter); ok {
-				rl.SetStatus(sw.statusCode)
-			} else {
-				log.Fatal("unable to get it done")
+			w.Write(httpProto.Body)
+			for !httpProto.Eof {
+				httpProto, err = protoRW.Next()
+				if err != nil {
+					return err
+				}
+				if _, err = w.Write(httpProto.Body); err != nil {
+					break
+				}
 			}
 			master.StopFunction(masterFn)
-			conn.Close()
 			return nil
 		}()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+func (master *Master) makeFunctionHandler(function string) http.Handler {
+	return logHandler(routeLogHandler(
+		http.HandlerFunc(master.functionHandlerFunc(function)),
+		master.ui,
+		fmt.Sprintf("Processing by function \"%s\"", function),
+	), master.ui)
 }
 
 func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (err error) {
@@ -230,18 +234,12 @@ func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (er
 
 	handler := http.NewServeMux()
 	if g.Function != "" {
-		handler.HandleFunc("/", master.functionHandlerFunc(g.Function))
+		handler.Handle("/", master.makeFunctionHandler(g.Function))
 	}
 
 	for _, route := range g.Routes {
 		if route.Function != "" {
-			handler.Handle(route.Path,
-				logHandler(routeLogHandler(
-					http.HandlerFunc(master.functionHandlerFunc(route.Function)),
-					master.ui,
-					fmt.Sprintf("Processing by function \"%s\"", route.Function),
-				), master.ui),
-			)
+			handler.Handle(route.Path, master.makeFunctionHandler(route.Function))
 		} else if route.Files != "" {
 			file := cfg.GetFiles(route.Files)
 			filepath := filepath.Join(

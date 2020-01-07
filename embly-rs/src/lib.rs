@@ -126,7 +126,7 @@ lazy_static! {
 ///
 ///
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Conn {
     id: i32,
     polled: bool,

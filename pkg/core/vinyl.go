@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"embly/pkg/vinyl"
-
+	vinyl "github.com/embly/vinyl/vinyl-go"
 	"github.com/embly/vinyl/vinyl-go/transport"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
