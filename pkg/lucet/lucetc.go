@@ -17,6 +17,22 @@ var bindings = map[string]map[string]string{
 	"wasi_unstable": {
 		"args_get":            "__wasi_args_get",
 		"args_sizes_get":      "__wasi_args_sizes_get",
+		"clock_res_get":       "__wasi_clock_res_get",
+		"clock_time_get":      "__wasi_clock_time_get",
+		"environ_get":         "__wasi_environ_get",
+		"environ_sizes_get":   "__wasi_environ_sizes_get",
+		"fd_fdstat_get":       "__wasi_fd_fdstat_get",
+		"fd_prestat_dir_name": "__wasi_fd_prestat_dir_name",
+		"fd_prestat_get":      "__wasi_fd_prestat_get",
+		"fd_write":            "__wasi_fd_write",
+		"poll_oneoff":         "__wasi_poll_oneoff",
+		"proc_exit":           "__wasi_proc_exit",
+		"random_get":          "__wasi_random_get",
+	},
+	"wasi_snapshot_preview1": {
+		"args_get":            "__wasi_args_get",
+		"args_sizes_get":      "__wasi_args_sizes_get",
+		"clock_res_get":       "__wasi_clock_res_get",
 		"clock_time_get":      "__wasi_clock_time_get",
 		"environ_get":         "__wasi_environ_get",
 		"environ_sizes_get":   "__wasi_environ_sizes_get",
@@ -66,10 +82,8 @@ func RunLucetc(bindingsLocation, wasmLocation, out string) (err error) {
 	// 	"-Os",
 	// 	wasmLocation)
 	// b, err := cmd.CombinedOutput()
-	// if err != nil {
-	// 	if len(b) > 0 {
-	// 		err = errors.New(string(b))
-	// 	}
+	// if err != nil {	"embly/pkg/randy"
+
 	// }
 	cmd := exec.Command("lucetc",
 		"--bindings", bindingsLocation,

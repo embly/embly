@@ -1,0 +1,24 @@
+# The URL the site will be built for
+# base_url = "https://embly.run/blog"
+base_url = "/blog/"
+
+extra_syntaxes = ["syntaxes/Terraform.tmLanguage"]
+
+title = "embly"
+
+# highlight_theme = "base16-ocean-dark"
+highlight_theme = "base16-ocean-light"
+generate_rss = true
+rss_limit = 20
+# Whether to automatically compile all Sass files in the sass directory
+compile_sass = true
+
+# Whether to do syntax highlighting
+# Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
+highlight_code = true
+
+# Whether to build a search index to be used later on by a JavaScript library
+build_search_index = true
+
+[extra]
+# Put all your custom variables here

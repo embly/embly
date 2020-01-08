@@ -1,0 +1,31 @@
+syntax = "proto3";
+package httpproto;
+
+message Http {
+  int32 proto_major = 1;
+  int32 proto_minor = 2;
+  string uri = 3;
+  int32 status = 4;
+  map<string, HeaderList> headers = 5;
+  enum Method {
+    GET = 0;
+    PUT = 1;
+    POST = 2;
+    DELETE = 3;
+    PATCH = 4;
+    OPTIONS = 5;
+    TRACE = 6;
+    CONNECT = 7;
+  }
+  Method method = 6;
+  bytes body = 7;
+
+  // this is a hack, we just say when the request is over
+  // but http already handles this, so maybe remove it and implement
+  // more complex detection of request completion?
+  bool eof = 8;
+}
+
+message HeaderList {
+  repeated string header = 1;
+}

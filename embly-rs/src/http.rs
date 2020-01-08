@@ -31,9 +31,11 @@
 //!     ::embly::http::run(catch_error);
 //! }
 //! ```
-//!
+//!curl
 
 use crate::error::Error as EmblyError;
+use crate::http_proto::httpproto::{HeaderList, Http};
+use crate::proto;
 use crate::task;
 use crate::Conn;
 use failure::Error;
@@ -48,14 +50,15 @@ use httparse;
 use std::future::Future;
 use std::io;
 use std::io::Read;
-use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 /// An http body
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Body {
     conn: Conn,
+    content_length: Option<usize>,
+    read_count: usize,
     read_buf: Vec<u8>,
 }
 
@@ -63,6 +66,27 @@ struct Interior {
     body: Body,
     parts: Parts,
     write_buf: Vec<u8>,
+}
+
+impl Body {
+    /// waits for all body bytes and returns them
+    pub fn bytes(&mut self) -> Result<Vec<u8>, Error> {
+        let mut out: Vec<u8> = self.read_buf.drain(..).collect();
+        if self.content_length.is_none() || self.content_length.unwrap() == 0 {
+            return Ok(out);
+        }
+        self.read_count = out.len();
+        if self.read_count == self.content_length.unwrap() {
+            Ok(out)
+        } else {
+            while self.read_count < self.content_length.unwrap() {
+                let mut http = proto::next_message(&mut self.conn)?;
+                self.read_count += http.body.len();
+                out.append(&mut http.body);
+            }
+            Ok(out)
+        }
+    }
 }
 
 impl Interior {
@@ -130,42 +154,6 @@ impl ResponseWriter {
             })),
         }
     }
-    fn write_headers(&mut self) -> Vec<u8> {
-        let mut dst: Vec<u8> = Vec::new();
-
-        let mut interior = self.interior.lock().unwrap();
-
-        if self.function_returned && !interior.parts.headers.contains_key("Transfer-Encoding") {
-            let len = interior.write_buf.len();
-            interior.header("Content-Length", len).unwrap();
-        }
-
-        let init_cap = 30 + interior.parts.headers.len() * AVERAGE_HEADER_SIZE;
-        dst.reserve(init_cap);
-        extend(&mut dst, b"HTTP/1.1 "); // todo: support passed version
-        extend(&mut dst, interior.parts.status.as_str().as_bytes());
-        extend(&mut dst, b" ");
-        extend(
-            &mut dst,
-            interior
-                .parts
-                .status
-                .canonical_reason()
-                .unwrap_or("<none>")
-                .as_bytes(),
-        );
-        extend(&mut dst, b"\r\n");
-        for (name, values) in interior.parts.headers.drain() {
-            for value in values {
-                extend(&mut dst, name.as_str().as_bytes());
-                extend(&mut dst, b": ");
-                extend(&mut dst, value.as_bytes());
-                extend(&mut dst, b"\r\n");
-            }
-        }
-        extend(&mut dst, b"\r\n");
-        dst
-    }
     /// add a header to this response
     pub fn header<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
     where
@@ -210,56 +198,58 @@ pub trait Flusher {
 
 impl Flusher for ResponseWriter {
     fn flush_response(&mut self) -> Result<(), Error> {
-        // quick extra allocation for now to ensure flush makes one write call with
-        // all bytes
-        // TODO: remove extra allocation
-        let mut out = Vec::new();
-        if !self.headers_written {
-            let dst = &self.write_headers();
-            self.headers_written = true;
-            out.write_all(dst)?;
-        }
+        let mut http_msg = Http::default();
         let mut interior = self.interior.lock().unwrap();
-        out.write_all(&interior.write_buf)?;
-        interior.body.write_all(&out)?;
-        interior.write_buf.clear();
-        Ok(())
-    }
-}
 
-#[inline]
-fn extend(dst: &mut Vec<u8>, data: &[u8]) {
-    dst.extend_from_slice(data);
-}
-
-impl io::Read for Body {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if !self.read_buf.is_empty() {
-            let ln = (&self.read_buf[..]).read(buf)?;
-            self.read_buf.drain(0..ln);
-            Ok(ln)
-        } else {
-            self.conn.read(buf)
+        if !self.headers_written {
+            http_msg.status = interior.parts.status.as_u16() as i32;
+            for (name, values) in interior.parts.headers.drain() {
+                let mut list = HeaderList::default();
+                for value in values {
+                    list.header.push(value.to_str()?.to_string());
+                }
+                http_msg.headers.insert(name.as_str().to_string(), list);
+            }
+            self.headers_written = true;
         }
-    }
-}
-
-impl io::Write for Body {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        // todo: we're not just writing back to connection here
-        // when we write to this message we're writing the
-        // body so we need to be sure
-        self.conn.write(buf)
-    }
-    fn flush(&mut self) -> io::Result<()> {
+        if self.function_returned {
+            http_msg.eof = true;
+        }
+        http_msg.body = interior.write_buf.drain(..).collect();
+        proto::write_msg(&mut interior.body.conn, http_msg)?;
         Ok(())
     }
 }
+
+// impl io::Read for Body {
+//     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+//         if !self.read_buf.is_empty() {
+//             let ln = (&self.read_buf[..]).read(buf)?;
+//             self.read_buf.drain(0..ln);
+//             Ok(ln)
+//         } else {
+//             self.conn.read(buf)
+//         }
+//     }
+// }
+
+// impl io::Write for Body {
+//     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+//         // todo: we're not just writing back to connection here
+//         // when we write to this message we're writing the
+//         // body so we need to be sure
+//         self.conn.write(buf)
+//     }
+//     fn flush(&mut self) -> io::Result<()> {
+//         Ok(())
+//     }
+// }
 
 fn build_request_from_comm(c: &mut Conn) -> Result<Request<Body>, Error> {
     c.wait()?;
     let id = c.id;
-    let mut request = reader_to_request(c)?;
+    let http = proto::next_message(c)?;
+    let mut request = http_proto_to_request(http);
     let body = request.body_mut();
     body.conn.id = id;
     Ok(request)
@@ -267,36 +257,26 @@ fn build_request_from_comm(c: &mut Conn) -> Result<Request<Body>, Error> {
 
 // https://github.com/hyperium/hyper/blob/da9b0319ef8d85662f66ac3bea74036b3dd3744e/src/proto/h1/role.rs#L18
 const MAX_HEADERS: usize = 100;
-const AVERAGE_HEADER_SIZE: usize = 30;
 
-fn reader_to_request<R: Read>(mut c: R) -> Result<Request<Body>, Error> {
-    let mut headers: Vec<httparse::Header> = vec![httparse::EMPTY_HEADER; MAX_HEADERS];
-    let mut buf: Vec<u8> = Vec::new();
-
-    let mut req = httparse::Request::new(&mut headers);
-    c.read_to_end(&mut buf)?;
-    let result = req.parse(&buf)?;
-    if result.is_partial() {
-        return Err(EmblyError::InvalidHttpRequest.into());
-    }
+fn http_proto_to_request(http: Http) -> Request<Body> {
     let mut request = Request::builder();
-    if let Some(uri) = req.path {
-        request.uri(uri);
-    }
-    if let Some(method) = req.method {
-        request.method(method);
-    }
-    // todo: reserve correct header capacity
-    for h in &headers {
-        if h.name.is_empty() && h.value.is_empty() {
-            break;
+    request.uri(http.uri);
+    // hardcode a map?
+    let mut body = Body::default();
+    request.method(format!("{:?}", http.method).as_str());
+    for (h, values) in http.headers {
+        if h == "Content-Length" {
+            let cl: usize = values.header[0]
+                .parse()
+                .expect("content length should be an int");
+            body.content_length = Some(cl);
         }
-        request.header(h.name, h.value);
+        for v in values.header {
+            request.header(&h, v);
+        }
     }
-    Ok(request.body(Body {
-        conn: Conn::new(0),
-        read_buf: buf[result.unwrap()..].to_vec(),
-    })?)
+    body.read_buf = http.body;
+    request.body(body).expect("should be able to create a body")
 }
 
 // Will be used, currently just used for tests
@@ -326,10 +306,9 @@ fn reader_to_response<R: Read>(mut c: R) -> Result<Response<Body>, Error> {
         }
         response.header(h.name, h.value);
     }
-    Ok(response.body(Body {
-        conn: Conn::new(0),
-        read_buf: buf[result.unwrap()..].to_vec(),
-    })?)
+    let mut body = Body::default();
+    body.read_buf = buf[result.unwrap()..].to_vec();
+    Ok(response.body(body)?)
 }
 
 /// Run an http handler Function
@@ -367,10 +346,9 @@ where
     let function_id = 1;
     let mut c = Conn::new(function_id);
     let r = build_request_from_comm(&mut c).expect("http request should be valid");
-    let mut resp = ResponseWriter::new(Body {
-        conn: c.clone(),
-        read_buf: Vec::new(),
-    });
+    let mut body = Body::default();
+    body.conn = c.clone();
+    let mut resp = ResponseWriter::new(body);
     task::Task::spawn(Box::pin(to_run(r, resp.clone())));
     resp.function_returned = true;
     resp.flush_response().expect("should be able to flush");
@@ -380,45 +358,21 @@ where
 mod tests {
     use super::*;
 
-    #[test]
-    fn basic_parse() {
-        let b = "hello";
-        let e = reader_to_request(b.as_bytes())
-            .err()
-            .expect("there should be an error");
-        match e
-            .as_fail()
-            .downcast_ref()
-            .expect("the wrong type of error was returned")
-        {
-            EmblyError::InvalidHttpRequest => (),
-            _ => panic!("the wrong error was returned"),
-        }
-    }
+    //     #[test]
+    //     fn post_request() -> Result<(), Error> {
+    //         let b = "POST /test HTTP/1.1
+    // Host: foo.example
+    // Content-Type: application/x-www-form-urlencoded
+    // Content-Length: 27
 
-    #[test]
-    fn simple_valid_request() -> Result<(), Error> {
-        let b = "GET /c HTTP/1.1\r\nHost: f\r\n\r\n".as_bytes();
-        reader_to_request(b)?;
-        Ok(())
-    }
-
-    #[test]
-    fn post_request() -> Result<(), Error> {
-        let b = "POST /test HTTP/1.1
-Host: foo.example
-Content-Type: application/x-www-form-urlencoded
-Content-Length: 27
-
-field1=value1&field2=value2";
-        let mut request = reader_to_request(b.as_bytes())?;
-        let body = request.body_mut();
-        let mut b: Vec<u8> = Vec::new();
-        body.read_to_end(&mut b)?;
-        let values = "field1=value1&field2=value2";
-        assert_eq!(b, values.as_bytes());
-        Ok(())
-    }
+    // field1=value1&field2=value2";
+    //         let mut request = reader_to_request(b.as_bytes())?;
+    //         let body = request.body_mut();
+    //         let b: Vec<u8> = body.bytes()?;
+    //         let values = "field1=value1&field2=value2";
+    //         assert_eq!(b, values.as_bytes());
+    //         Ok(())
+    //     }
 
     // fn test_response_writer() -> ResponseWriter {
     //     ResponseWriter::new(Body {

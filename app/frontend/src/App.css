@@ -1,0 +1,15 @@
+body {
+  background-color: #394b59;
+}
+
+.logo a {
+  color: white;
+}
+.logo a:hover {
+  text-decoration: none;
+  color: white;
+}
+
+/* #E36A66
+#9AFAA8
+#8FCAFF */

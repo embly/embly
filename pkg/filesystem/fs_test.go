@@ -3,11 +3,12 @@ package filesystem
 import (
 	"archive/tar"
 	"compress/gzip"
-	"embly/pkg/tester"
 	"fmt"
 	"io"
 	"os"
 	"testing"
+
+	"embly/pkg/tester"
 )
 
 func keys(m map[string]os.FileInfo) (out []string) {

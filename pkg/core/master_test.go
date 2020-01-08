@@ -2,11 +2,12 @@ package core
 
 import (
 	"bytes"
-	comms_proto "embly/pkg/core/proto"
-	"embly/pkg/tester"
 	"fmt"
 	"os/exec"
 	"testing"
+
+	comms_proto "embly/pkg/core/proto"
+	"embly/pkg/tester"
 )
 
 func init() {

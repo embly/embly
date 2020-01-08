@@ -1,0 +1,31 @@
+@if (global-variable-exists(body-color)) {
+  body {
+    color: $body-color;
+  }
+
+  .post_container .info,
+  footer {
+    font-size: 80%;
+    color: $small-info-color;
+    a {
+      color: $small-info-color;
+    }
+  }
+
+  article .body a {
+    color: $calm-link-color;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  a {
+    color: $body-color;
+    text-decoration: none;
+  }
+
+  code {
+    padding: 2px 4px;
+    background-color: $code-inline-background;
+  }
+}

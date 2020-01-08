@@ -1,0 +1,3 @@
+[submodule "blog/syntaxes/Terraform.tmLanguage"]
+	path = blog/syntaxes/Terraform.tmLanguage
+	url = https://github.com/alexlouden/Terraform.tmLanguage.git

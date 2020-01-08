@@ -13,7 +13,6 @@ type bundleCommand struct {
 
 func (f *bundleCommand) flags() *flag.FlagSet {
 	f.flagSet = &flag.FlagSet{}
-	f.includeObjectFiles = f.flagSet.BoolP("include-objects", "i", false, "Include locally built object files in the archive")
 	return f.flagSet
 }
 
@@ -29,6 +28,9 @@ func (f *bundleCommand) run(args []string) (err error) {
 	if err != nil {
 		return
 	}
+	incl := true
+	f.includeObjectFiles = &incl
+
 	if len(builder.Config.Gateways) == 0 {
 		UI.Info("No gateways, nothing to run")
 		return nil

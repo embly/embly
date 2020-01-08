@@ -1,0 +1,8 @@
+version: "3.5"
+
+services:
+  app:
+    image: embly/app
+    build: .
+    ports:
+      - 8082:8082

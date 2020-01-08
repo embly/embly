@@ -2,7 +2,7 @@ extern crate embly;
 
 use embly::http;
 use embly::http::{Body, Request, ResponseWriter};
-use embly::kv::KV;
+use embly::kv;
 use embly::prelude::*;
 use embly::Error;
 use std::time;
@@ -19,8 +19,8 @@ async fn execute(_req: Request<Body>, mut w: ResponseWriter) {
 
 async fn execute_async(w: &mut ResponseWriter) -> Result<(), Error> {
     for _ in 0..10 {
-        KV::set("hi".as_bytes(), "ho".as_bytes()).await?;
-        let result = KV::get("hi".as_bytes()).await?;
+        kv::set("hi".as_bytes(), "ho".as_bytes()).await?;
+        let result = kv::get("hi".as_bytes()).await?;
         w.write(&result)?;
     }
 
@@ -29,5 +29,5 @@ async fn execute_async(w: &mut ResponseWriter) -> Result<(), Error> {
 }
 
 fn main() {
-    http::run_async(execute);
+    http::run(execute);
 }

@@ -196,9 +196,9 @@ func (builder *Builder) CompileFunctions() (err error) {
 
 // CompileWasmToObject just takes wasm files and turns them into local object files
 func (builder *Builder) CompileWasmToObject(isTar bool) (err error) {
-
 	// TODO: support no building with a tar?
 	if isTar {
+
 		for _, fn := range builder.Config.Functions {
 			objLocation := filepath.Join(builder.emblyBuildDir(), fn.Name+"."+builder.objectExtension())
 			_, err := os.Stat(objLocation)

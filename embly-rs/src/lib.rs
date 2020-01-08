@@ -38,7 +38,9 @@
 pub use failure::Error;
 pub mod error;
 pub mod http;
+mod http_proto;
 pub mod kv;
+mod proto;
 mod task;
 
 use crate::prelude::*;
@@ -124,7 +126,7 @@ lazy_static! {
 ///
 ///
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Conn {
     id: i32,
     polled: bool,

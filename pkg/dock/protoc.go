@@ -1,11 +1,12 @@
 package dock
 
 import (
-	"embly/pkg/randy"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"embly/pkg/randy"
 
 	proto "github.com/golang/protobuf/proto"
 	pb "github.com/golang/protobuf/protoc-gen-go/descriptor"

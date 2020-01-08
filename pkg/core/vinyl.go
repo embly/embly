@@ -1,14 +1,14 @@
 package core
 
 import (
-	comms_proto "embly/pkg/core/proto"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
-	"embly/pkg/vinyl"
+	comms_proto "embly/pkg/core/proto"
 
+	vinyl "github.com/embly/vinyl/vinyl-go"
 	"github.com/embly/vinyl/vinyl-go/transport"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"

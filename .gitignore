@@ -10,3 +10,7 @@
 target
 embly_build
 Cargo.lock
+
+
+build/*
+!build/.keep

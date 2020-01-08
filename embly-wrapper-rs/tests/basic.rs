@@ -149,7 +149,7 @@ fn test_async_full() -> Result<()> {
 extern crate embly;
 
 use embly::{prelude::*, spawn_function, Error};
-use std::{time, thread};
+use std::time;
 
 async fn run_with_result(mut conn: embly::Conn) -> Result<(), Error> {
     let now = time::Instant::now();

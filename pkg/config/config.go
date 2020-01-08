@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	comms_proto "embly/pkg/core/proto"
-	vinyl "embly/pkg/vinyl"
+	vinyl "github.com/embly/vinyl/vinyl-go"
 
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
