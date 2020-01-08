@@ -79,3 +79,11 @@ run_project_example: build_embly
 
 clean:
 	rm build/*
+
+deploy_embly_run: build_embly_image
+	cd app && make push_docker_image
+	./tools/deploy_embly_run.sh
+
+embly_run_logs:
+	./tools/embly_run_logs.sh
+

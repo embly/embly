@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<p>
+    Welcome to the Embly blog.
+</p>
+
+
+<section id="main" class="mt4">
+    <div>Links:</div>
+    {% set links = load_data(path="./templates/links.csv") %}
+    {% for link in links.records %}
+    <ul id="list" class="pl0">
+        <li class="list pl0">
+            <a class="f4 b dib no-underline" href="{{link.1}}">{{link.0}}</a>
+        </li>
+    </ul>
+    {% endfor  %}
+    <div class="mt4">Posts:</div>
+    <div>
+        <ul id="list" class="pl0">
+            {% for page in paginator.pages %}
+            <li class="list pl0 lh-copy" id="{{page.title}}">
+                <a class="f3 b dib no-underline" href="{{page.permalink}}">
+                    {{page.title}}
+                </a>
+                <span class="f6 gray db dib-ns">{{ page.date | date(format="%B %d, %Y") }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+
+{% endblock content %}

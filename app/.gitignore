@@ -1,0 +1,9 @@
+.DS_Store
+target
+embly_build
+blog/public
+*.gz
+
+
+build/*
+!build/.keep

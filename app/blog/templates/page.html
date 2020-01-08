@@ -1,0 +1,23 @@
+{% extends "base.html" %} 
+
+{% block title %}
+<title>{{ page.title }}</title>
+{% endblock title %}
+
+{% block content %}
+<section class="post_container">
+    <article>
+        {% block post %}
+        <h1 class="article_title">
+            <a class="no-underline" href="{{ page.permalink }}" id="article_link">{{ page.title }}</a>
+        </h1>
+        <div class="info" ts="{{page.date}}">
+            {{ page.extra.author }} | {{ page.date | date(format="%B %d, %Y") }} | {{ page.word_count }} words | {{ page.reading_time }} min
+        </div>
+        <div class="body">
+            {{ page.content | safe }}
+        </div>
+        {% endblock post %}
+    </article>
+</section>
+{% endblock content %}

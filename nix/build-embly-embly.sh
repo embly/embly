@@ -6,7 +6,7 @@ export DOCKER_BUILDKIT=1
 
 ./build-docker.sh
 
-# ./run-docker.sh --run "make build_embly"
+./run-docker.sh --run "make build_embly"
 EMBLY_LOCATION=$(./run-docker.sh --run "which embly" | tr -d '\r')
 
 export NIX_DOCKER_RUN_ARGS="-d" 

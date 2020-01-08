@@ -42,9 +42,15 @@ pub fn write_msg<W: io::Write>(stream: &mut W, msg: Http) -> Result<(), Error> {
 
 pub fn next_message(stream: &mut Conn) -> Result<Http, Error> {
     let mut size_bytes: [u8; 4] = [0; 4];
-    stream
-        .read_exact(&mut size_bytes)
-        .or_else(|err: io::Error| Err(err))?;
+    loop {
+        // this is stupid and points to faults in the ABI
+        if let Err(err) = stream.read_exact(&mut size_bytes) {
+            println!("ok {:?}", err);
+            stream.wait()?;
+        } else {
+            break;
+        }
+    }
     let size = as_u32_le(&size_bytes) as usize;
     let mut read = 0;
     if size == 0 {
