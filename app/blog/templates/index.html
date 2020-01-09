@@ -1,12 +1,44 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p>
-    Welcome to the Embly blog.
-</p>
+
 
 
 <section id="main" class="mt4">
+    <article>
+        <div class="body">
+            <p>
+                Embly is a serverless webassembly framework.
+            </p>
+
+            <p>
+                You can learn more about Embly by reading <a href="what-is-embly/">What is Embly</a> or
+                by checking out the source and examples on github:
+                <a href="https://www.github.com/embly/embly">github.com/embly/embly</a>
+            </p>
+
+            <p>
+                This site is also an Embly application. You can check out the 
+                <a href="/app">example authentication application</a> endpoint
+                that uses the Embly key-value store to store data and 
+                processes all login and registration logic with webassembly 
+                functions.
+            </p>
+        </div>
+    </article>
+    <div class="mt4">Posts:</div>
+    <div>
+        <ul id="list" class="pl0">
+            {% for page in paginator.pages %}
+            <li class="list pl0" id="{{page.title}}">
+                <a class="f4 b dib no-underline" href="{{page.permalink}}">
+                    {{page.title}}
+                </a>
+                <span class="f6 gray db dib-ns">{{ page.date | date(format="%B %d, %Y") }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
     <div>Links:</div>
     {% set links = load_data(path="./templates/links.csv") %}
     {% for link in links.records %}
@@ -16,19 +48,8 @@
         </li>
     </ul>
     {% endfor  %}
-    <div class="mt4">Posts:</div>
-    <div>
-        <ul id="list" class="pl0">
-            {% for page in paginator.pages %}
-            <li class="list pl0 lh-copy" id="{{page.title}}">
-                <a class="f3 b dib no-underline" href="{{page.permalink}}">
-                    {{page.title}}
-                </a>
-                <span class="f6 gray db dib-ns">{{ page.date | date(format="%B %d, %Y") }}</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
+
 </section>
+
 
 {% endblock content %}

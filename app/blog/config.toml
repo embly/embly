@@ -1,6 +1,6 @@
 # The URL the site will be built for
 # base_url = "https://embly.run/blog"
-base_url = "/blog/"
+base_url = "/"
 
 extra_syntaxes = ["syntaxes/Terraform.tmLanguage"]
 
