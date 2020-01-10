@@ -40,5 +40,6 @@ jobs:
             export PATH=\$PATH:/root/.cargo/bin \
             && make build_embly \
             && make test \
-            && make build_examples 
+            && make build_examples \
+            && cd app && embly build
             "

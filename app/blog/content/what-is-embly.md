@@ -1,6 +1,6 @@
 +++
 title = "What is Embly"
-date = 2020-01-04T02:03:00Z
+date = 2020-01-09T02:03:00Z
 [extra]
 author = "Max McDonnell"
 +++

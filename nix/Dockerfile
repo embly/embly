@@ -5,7 +5,8 @@ RUN apt-get update && apt-get install -y binutils patchelf
 COPY ./embly /bin/embly
 COPY ./embly-wrapper /bin/embly-wrapper
 COPY ./lucetc /bin/lucetc
-RUN patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /bin/embly \
+RUN strip /bin/embly /bin/embly-wrapper /bin/lucetc \
+    && patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /bin/embly \
     && patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /bin/embly-wrapper \
     && patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /bin/lucetc
 

@@ -12,7 +12,7 @@ gateway {
   port = 8082
 
   route "/" {
-    files = "${files.index}"
+    files = "${files.blog}"
   }
 
   route "/app/" {
@@ -20,9 +20,6 @@ gateway {
   }
   route "/api/auth/" {
     function = "${function.auth}"
-  }
-  route "/blog/" {
-    files = "${files.blog}"
   }
 
 }
@@ -37,6 +34,3 @@ files "blog" {
   path = "./blog/dist/"
 }
 
-files "index" {
-  path = "./index/"
-}
