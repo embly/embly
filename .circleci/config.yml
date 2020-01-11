@@ -41,6 +41,6 @@ jobs:
             && make build_embly \
             && make test \
             && make build_examples \
-            && make build_blog_examples \ 
+            && make build_blog_examples \
             && cd app && embly build 
             "
