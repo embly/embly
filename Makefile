@@ -46,6 +46,9 @@ build_examples: build_embly
 	cd examples/kv && embly build
 	cd examples/project && embly build
 
+build_hello_world:
+	cd examples/hello-world && embly build
+
 go_test:
 	go test ./... -cover
 
@@ -87,3 +90,7 @@ deploy_embly_run: build_embly_image
 embly_run_logs:
 	./tools/embly_run_logs.sh
 
+build_blog_examples: build_hello_world
+	cd examples/hello-world && ./inject_example.py
+	cd app && make build_blog
+	cd examples/hello-world && ./copy_example_html.py

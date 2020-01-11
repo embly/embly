@@ -41,5 +41,6 @@ jobs:
             && make build_embly \
             && make test \
             && make build_examples \
-            && cd app && embly build
+            && make build_blog_examples \ #TODO: error if this generates a diff
+            && cd app && embly build 
             "
