@@ -10,7 +10,7 @@ RUN strip /bin/embly /bin/embly-wrapper /bin/lucetc \
     && patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /bin/embly-wrapper \
     && patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /bin/lucetc
 
-FROM gcr.io/distroless/cc:debug
+FROM debian:stretch-slim
 
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=ld /bin/embly /bin/embly
@@ -29,4 +29,5 @@ COPY --from=ld \
     /lib/x86_64-linux-gnu/libc.so.6 \
     /lib/x86_64-linux-gnu/
 
+CMD embly
 WORKDIR /app

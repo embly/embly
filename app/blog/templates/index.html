@@ -8,22 +8,146 @@
     <article>
         <div class="body">
             <p>
-                Embly is a serverless webassembly framework.
+                A serverless web application framework for collaboration and scale.
             </p>
+            <div class="mb5">
+                <h3>Mission</h3>
+                <p>
+                    Embly was born out of the frustration that it's very easy to deploy
+                    static web applications across massive CDN's, but it's much more difficult
+                    to deploy dynamic programs.
+                </p>
+                <p>
+                    Embly applications are made up of small sandboxed webassembly programs that
+                    communicate with each other.
 
-            <p>
-                You can learn more about Embly by reading <a href="what-is-embly/">What is Embly</a> or
-                by checking out the source and examples on github:
-                <a href="https://www.github.com/embly/embly">github.com/embly/embly</a>
-            </p>
+                    Small pieces of code can be recompiled and hot-reloaded, easing development
+                    and deploy. Project and applications can be imported and re-used in part or
+                    in whole, allowing easy sharing and composition. And resource constraints
+                    can be applied to each sandboxed program allowing multiple users to safely
+                    share the same cluster.
+                </p>
+            </div>
 
+            <div class="mb5">
+                <h3 class="mb0">Building Blocks</h3>
+                <div class="cf">
+                    <div class="fl w-50 pr1">
+                        <h4>Build</h4>
+                        No more fiddling with cutting edge webassembly builds.
+                        Embly provides the build system for the languages it supports. Your builds will
+                        work because they work for the community. Their build and dev improvements will make it
+                        to your workflow.
+                    </div>
+                    <div class="fl w-50 pl1">
+                        <h4>Develop</h4>
+                        Embly is a self-contained system, so there's nothing stopping the development experience
+                        from being top notch. The vision is that you'll be able to develop Embly apps in a web brower,
+                        native app, or on your personal computer, with full support for linting, testing, code
+                        generation, and various tools in each environment.
+                    </div>
+                </div>
+                <div class="cf">
+                    <div class="fl w-50 pr1">
+                        <h4>Deploy</h4>
+                        Embly clusters can trivially support multi-tenancy. You can set up a shared cluster with your
+                        friends or deploy your application with a third-party and pay for just the resources your
+                        application uses when responding to requests.
+                    </div>
+                    <div class="fl w-50 pl1">
+                        <h4>Collaborate</h4>
+                        Embly applictions are design to be shared. Their modularity means you can try out small
+                        peices of a shared application and deploy things to test out in seconds.
+                    </div>
+                </div>
+            </div>
+            <h3>Further Reading:</h3>
+            <div class="mb5">
+                <p>
+                    You can learn more about Embly by reading <a href="what-is-embly/">What is Embly</a> or
+                    by checking out the source and examples on github:
+                    <a href="https://www.github.com/embly/embly">github.com/embly/embly</a>
+                </p>
+
+                <p>
+                    The site you're on now is also an Embly application. You can check out the
+                    <a href="/app">example authentication application</a>.
+                    It uses the Embly key-value store to store user data and
+                    processes all login and registration logic with webassembly
+                    functions.
+                </p>
+
+            </div>
+
+            <div class="mb5">
+                <h3 class="">Minimal Hello World</h3>
+                Create a new folder and add the following files and directory structure:
+                <pre>├── embly.hcl
+└── hello
+    ├── Cargo.toml
+    └── src
+        └── main.rs</pre>
+                Now add the following file contents:
+                <br>
+                <b>embly.hcl:</b>
+                <pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">function &quot;</span><span style="color:#a3be8c;">hello</span><span style="color:#4f5b66;">&quot; {
+  </span><span style="color:#bf616a;">runtime </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">rust</span><span style="color:#4f5b66;">&quot;
+  </span><span style="color:#bf616a;">path    </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">./hello</span><span style="color:#4f5b66;">&quot;
+}
+
+</span><span style="color:#8fa1b3;">gateway </span><span style="color:#4f5b66;">{
+  </span><span style="color:#bf616a;">type </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">http</span><span style="color:#4f5b66;">&quot;
+  </span><span style="color:#bf616a;">port </span><span style="color:#4f5b66;">= </span><span style="color:#d08770;">8080</span><span style="color:#4f5b66;">
+  route &quot;</span><span style="color:#a3be8c;">/</span><span style="color:#4f5b66;">&quot; {
+    </span><span style="color:#bf616a;">function </span><span style="color:#4f5b66;">= &quot;${function</span><span style="color:#b48ead;">.</span><span style="color:#4f5b66;">hello}&quot;
+  }
+}
+</span></pre>
+                <br>
+                <b>Cargo.toml:</b>
+                <pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">[package]
+</span><span style="color:#bf616a;">name </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">hello</span><span style="color:#4f5b66;">&quot;
+</span><span style="color:#bf616a;">version </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">0.0.1</span><span style="color:#4f5b66;">&quot;
+
+[dependencies]
+</span><span style="color:#bf616a;">embly </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">0.0.5</span><span style="color:#4f5b66;">&quot;
+</span></pre>
+
+                <br>
+                <b>main.rs:</b>
+
+                <pre style="background-color:#eff1f5;">
+<span style="color:#b48ead;">extern crate</span><span style="color:#4f5b66;"> embly;
+</span><span style="color:#b48ead;">use </span><span style="color:#4f5b66;">embly::{
+  http::{Body, Request, ResponseWriter, run_catch_error},
+  prelude::*,
+  Error,
+};
+
+async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">execute</span><span style="color:#4f5b66;">(</span><span style="color:#bf616a;">_req</span><span style="color:#4f5b66;">: Request&lt;Body&gt;, </span><span style="color:#bf616a;">w</span><span style="color:#4f5b66;">: &amp;</span><span style="color:#b48ead;">mut</span><span style="color:#4f5b66;"> ResponseWriter) -&gt; Result&lt;(), Error&gt;{
+    w.</span><span style="color:#96b5b4;">write_all</span><span style="color:#4f5b66;">(</span><span style="color:#b48ead;">b</span><span style="color:#4f5b66;">&quot;</span><span style="color:#a3be8c;">Hello World</span><span style="color:#4f5b66;">&quot;)?; </span><span style="color:#a7adba;">// writing our hello response bytes 
+    </span><span style="color:#4f5b66;">Ok(()) </span><span style="color:#a7adba;">// if an error is returned the server will respond with an HTTP error
+</span><span style="color:#4f5b66;">}
+
+</span><span style="color:#a7adba;">// this function is run first
+</span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#4f5b66;">() {
+    </span><span style="color:#96b5b4;">run_catch_error</span><span style="color:#4f5b66;">(execute); </span><span style="color:#a7adba;">// this is the embly::http::run function that is specific to http responses
+</span><span style="color:#4f5b66;">}
+</span></pre>
+            <br>
+            Now run your project with:
+            <br>
+            <pre>docker run -v /var/run/docker.sock:/var/run/docker.sock  -v $(pwd):/app -p 8080:8080 -it embly/embly embly dev</pre>
             <p>
-                This site is also an Embly application. You can check out the 
-                <a href="/app">example authentication application</a> endpoint
-                that uses the Embly key-value store to store data and 
-                processes all login and registration logic with webassembly 
-                functions.
+                Congrats! You've run your first Embly project.
             </p>
+            <p>
+                    (careful! For the moment, Embly needs access to the docker socket to download and run build containers. This involves
+                    a lot of trust as it gives full control to the docker daemon.)        
+            </p>
+            </div>
         </div>
     </article>
     <div class="mt4">Posts:</div>

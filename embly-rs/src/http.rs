@@ -50,6 +50,7 @@ use httparse;
 use std::future::Future;
 use std::io;
 use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -343,13 +344,38 @@ pub fn run<F>(to_run: fn(Request<Body>, ResponseWriter) -> F)
 where
     F: Future<Output = ()> + 'static,
 {
-    let function_id = 1;
-    let mut c = Conn::new(function_id);
+    let mut c = Conn::new(1);
     let r = build_request_from_comm(&mut c).expect("http request should be valid");
     let mut body = Body::default();
     body.conn = c.clone();
     let mut resp = ResponseWriter::new(body);
     task::Task::spawn(Box::pin(to_run(r, resp.clone())));
+    resp.function_returned = true;
+    resp.flush_response().expect("should be able to flush");
+}
+
+/// run_catch_error
+pub fn run_catch_error<F>(to_run: fn(Request<Body>, ResponseWriter) -> F)
+where
+    F: Future<Output = Result<(), Error>> + 'static,
+{
+    let mut c = Conn::new(1);
+    let r = build_request_from_comm(&mut c).expect("http request should be valid");
+    let mut body = Body::default();
+    body.conn = c.clone();
+    let mut resp = ResponseWriter::new(body);
+    let user_resp = resp.clone();
+    let mut error_resp = resp.clone();
+    task::Task::spawn(Box::pin(async move {
+        match to_run(r, user_resp).await {
+            Ok(_) => {}
+            Err(err) => {
+                println!("got error: {}", err);
+                error_resp.status(500).unwrap();
+                error_resp.write(&format!("{}", err).as_bytes()).unwrap();
+            }
+        }
+    }));
     resp.function_returned = true;
     resp.flush_response().expect("should be able to flush");
 }
