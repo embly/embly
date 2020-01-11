@@ -90,8 +90,8 @@
                 Now add the following file contents:
                 <br>
                 <b>embly.hcl:</b>
-                <!-- begin embly.hcl -->
-                <pre style="background-color:#eff1f5;">
+<!-- begin embly.hcl -->
+<pre style="background-color:#eff1f5;">
 <span style="color:#4f5b66;">function &quot;</span><span style="color:#a3be8c;">hello</span><span style="color:#4f5b66;">&quot; {
   </span><span style="color:#bf616a;">runtime </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">rust</span><span style="color:#4f5b66;">&quot;
   </span><span style="color:#bf616a;">path    </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">./hello</span><span style="color:#4f5b66;">&quot;
@@ -99,7 +99,7 @@
 
 </span><span style="color:#8fa1b3;">gateway </span><span style="color:#4f5b66;">{
   </span><span style="color:#bf616a;">type </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">http</span><span style="color:#4f5b66;">&quot;
-  </span><span style="color:#bf616a;">port </span><span style="color:#4f5b66;">= </span><span style="color:#d08770;">8080</span><span style="color:#4f5b66;">
+  </span><span style="color:#bf616a;">port </span><span style="color:#4f5b66;">= </span><span style="color:#d08770;">8765</span><span style="color:#4f5b66;">
   route &quot;</span><span style="color:#a3be8c;">/</span><span style="color:#4f5b66;">&quot; {
     </span><span style="color:#bf616a;">function </span><span style="color:#4f5b66;">= &quot;${function</span><span style="color:#b48ead;">.</span><span style="color:#4f5b66;">hello}&quot;
   }
@@ -107,11 +107,12 @@
 </span></pre><!-- end embly.hcl -->
                 <br>
                 <b>Cargo.toml:</b>
-                <!-- begin hello/Cargo.toml -->
-                <pre style="background-color:#eff1f5;">
+<!-- begin hello/Cargo.toml -->
+<pre style="background-color:#eff1f5;">
 <span style="color:#4f5b66;">[package]
 </span><span style="color:#bf616a;">name </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">hello</span><span style="color:#4f5b66;">&quot;
 </span><span style="color:#bf616a;">version </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">0.0.1</span><span style="color:#4f5b66;">&quot;
+</span><span style="color:#bf616a;">edition </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">2018</span><span style="color:#4f5b66;">&quot;
 
 [dependencies]
 </span><span style="color:#bf616a;">embly </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">0.0.5</span><span style="color:#4f5b66;">&quot;
@@ -119,23 +120,23 @@
 
                 <br>
                 <b>main.rs:</b>
-                <!-- begin hello/src/main.rs -->
-                <pre style="background-color:#eff1f5;">
+<!-- begin hello/src/main.rs -->
+<pre style="background-color:#eff1f5;">
 <span style="color:#b48ead;">extern crate</span><span style="color:#4f5b66;"> embly;
 </span><span style="color:#b48ead;">use </span><span style="color:#4f5b66;">embly::{
-  http::{Body, Request, ResponseWriter, run_catch_error},
+  http::{run_catch_error, Body, Request, ResponseWriter},
   prelude::*,
   Error,
 };
 
-async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">execute</span><span style="color:#4f5b66;">(</span><span style="color:#bf616a;">_req</span><span style="color:#4f5b66;">: Request&lt;Body&gt;, </span><span style="color:#bf616a;">w</span><span style="color:#4f5b66;">: &amp;</span><span style="color:#b48ead;">mut</span><span style="color:#4f5b66;"> ResponseWriter) -&gt; Result&lt;(), Error&gt;{
-    w.</span><span style="color:#96b5b4;">write_all</span><span style="color:#4f5b66;">(</span><span style="color:#b48ead;">b</span><span style="color:#4f5b66;">&quot;</span><span style="color:#a3be8c;">Hello World</span><span style="color:#4f5b66;">&quot;)?; </span><span style="color:#a7adba;">// writing our hello response bytes 
-    </span><span style="color:#4f5b66;">Ok(()) </span><span style="color:#a7adba;">// if an error is returned the server will respond with an HTTP error
+async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">execute</span><span style="color:#4f5b66;">(</span><span style="color:#bf616a;">_req</span><span style="color:#4f5b66;">: Request&lt;Body&gt;, </span><span style="color:#b48ead;">mut </span><span style="color:#bf616a;">w</span><span style="color:#4f5b66;">: ResponseWriter) -&gt; Result&lt;(), Error&gt; {
+  w.</span><span style="color:#96b5b4;">write_all</span><span style="color:#4f5b66;">(</span><span style="color:#b48ead;">b</span><span style="color:#4f5b66;">&quot;</span><span style="color:#a3be8c;">Hello World</span><span style="color:#4f5b66;">&quot;)?; </span><span style="color:#a7adba;">// writing our hello response bytes
+  </span><span style="color:#4f5b66;">Ok(()) </span><span style="color:#a7adba;">// if an error is returned the server will respond with an HTTP error
 </span><span style="color:#4f5b66;">}
 
 </span><span style="color:#a7adba;">// this function is run first
 </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#4f5b66;">() {
-    </span><span style="color:#96b5b4;">run_catch_error</span><span style="color:#4f5b66;">(execute); </span><span style="color:#a7adba;">// this is the embly::http::run function that is specific to http responses
+  </span><span style="color:#96b5b4;">run_catch_error</span><span style="color:#4f5b66;">(execute); </span><span style="color:#a7adba;">// this is the embly::http::run function that is specific to http responses
 </span><span style="color:#4f5b66;">}
 </span></pre><!-- end hello/src/main.rs -->
             <br>

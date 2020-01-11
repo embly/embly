@@ -10,7 +10,6 @@ with open(what_is_embly_html) as f:
     in_content = False
     for line in f.readlines():
         if "<!-- begin" in line:
-            this_content = line
             in_content = True
 
         if in_content:
@@ -22,13 +21,13 @@ with open(what_is_embly_html) as f:
             content[filename] = this_content
             this_content = ""
 
+
 with open("../../app/blog/templates/index.html", "r+") as f:
     out = ""
     in_content = False
     for line in f.readlines():
         if "<!-- begin" in line:
             in_content = True
-            print(line)
             filename = line.strip().split(" ")[2]
             out += content[filename]
 
@@ -37,5 +36,5 @@ with open("../../app/blog/templates/index.html", "r+") as f:
 
         if "<!-- end" in line:
             in_content = False
-
-    print(out)
+    f.seek(0)
+    f.write(out)
