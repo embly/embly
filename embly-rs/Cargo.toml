@@ -1,6 +1,6 @@
 [package]
 name = "embly"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["maxmcd <m@xmcd.me>"]
 edition = "2018"
 description = "Library for running functions on embly"

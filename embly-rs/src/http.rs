@@ -354,7 +354,25 @@ where
     resp.flush_response().expect("should be able to flush");
 }
 
-/// run_catch_error
+/// Run an http handler Function, but return a 500 response if the handler returns an error
+///
+/// ```no_run
+/// use embly::http::{Body, Request, ResponseWriter};
+/// use std::io::Write;
+/// use embly::Error;
+///
+/// async fn execute (_req: Request<Body>, mut w: ResponseWriter) -> Result<(), Error> {
+///     w.write("hello world\n".as_bytes())?;
+///     w.status("200")?;
+///     w.header("Content-Length", "12")?;
+///     w.header("Content-Type", "text/plain")?;
+///     Ok(())
+/// }
+///
+/// fn main() {
+///     ::embly::http::run_catch_error(execute);
+/// }
+///
 pub fn run_catch_error<F>(to_run: fn(Request<Body>, ResponseWriter) -> F)
 where
     F: Future<Output = Result<(), Error>> + 'static,
