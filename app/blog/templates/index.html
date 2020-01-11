@@ -90,6 +90,7 @@
                 Now add the following file contents:
                 <br>
                 <b>embly.hcl:</b>
+                <!-- begin embly.hcl -->
                 <pre style="background-color:#eff1f5;">
 <span style="color:#4f5b66;">function &quot;</span><span style="color:#a3be8c;">hello</span><span style="color:#4f5b66;">&quot; {
   </span><span style="color:#bf616a;">runtime </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">rust</span><span style="color:#4f5b66;">&quot;
@@ -103,9 +104,10 @@
     </span><span style="color:#bf616a;">function </span><span style="color:#4f5b66;">= &quot;${function</span><span style="color:#b48ead;">.</span><span style="color:#4f5b66;">hello}&quot;
   }
 }
-</span></pre>
+</span></pre><!-- end embly.hcl -->
                 <br>
                 <b>Cargo.toml:</b>
+                <!-- begin hello/Cargo.toml -->
                 <pre style="background-color:#eff1f5;">
 <span style="color:#4f5b66;">[package]
 </span><span style="color:#bf616a;">name </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">hello</span><span style="color:#4f5b66;">&quot;
@@ -113,11 +115,11 @@
 
 [dependencies]
 </span><span style="color:#bf616a;">embly </span><span style="color:#4f5b66;">= &quot;</span><span style="color:#a3be8c;">0.0.5</span><span style="color:#4f5b66;">&quot;
-</span></pre>
+</span></pre><!-- end hello/Cargo.toml -->
 
                 <br>
                 <b>main.rs:</b>
-
+                <!-- begin hello/src/main.rs -->
                 <pre style="background-color:#eff1f5;">
 <span style="color:#b48ead;">extern crate</span><span style="color:#4f5b66;"> embly;
 </span><span style="color:#b48ead;">use </span><span style="color:#4f5b66;">embly::{
@@ -135,7 +137,7 @@ async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;"
 </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#4f5b66;">() {
     </span><span style="color:#96b5b4;">run_catch_error</span><span style="color:#4f5b66;">(execute); </span><span style="color:#a7adba;">// this is the embly::http::run function that is specific to http responses
 </span><span style="color:#4f5b66;">}
-</span></pre>
+</span></pre><!-- end hello/src/main.rs -->
             <br>
             Now run your project with:
             <br>

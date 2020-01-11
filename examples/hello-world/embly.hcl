@@ -5,7 +5,7 @@ function "hello" {
 
 gateway {
   type = "http"
-  port = 8080
+  port = 8765
   route "/" {
     function = "${function.hello}"
   }
