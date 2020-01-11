@@ -17,6 +17,8 @@ sh -c "nix-env -iA nixpkgs.rustup nixpkgs.gcc  \
 nixpkgs.cmake \
 nixpkgs.protobuf \
 nixpkgs.docker \
+nixpkgs.python3 \
+nixpkgs.zola \
 && rustup toolchain add stable \
 && rustup toolchain add  nightly-2019-11-24 \
 && rustup target add wasm32-wasi --toolchain  nightly-2019-11-24 \
