@@ -110,8 +110,8 @@ docker run -v /var/run/docker.sock:/var/run/docker.sock  -v $(pwd):/app -p 8765:
 
 If you would like to run embly locally you'll need to have `cargo` and `go` installed. The following sequence of commands should work:
 ```bash
-cargo install embly
 go get github.com/embly/embly/cmd/embly
+cargo install embly-wrapper
 cargo install lucetc
 ```
 
