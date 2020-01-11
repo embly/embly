@@ -34,7 +34,8 @@ The goal is to allow a single configuration and code to define local development
 
 We'll start with an [hcl](https://github.com/hashicorp/hcl) configuration file in an empty directory: `embly.hcl`.
 
-```terraform
+<!-- begin embly.hcl -->
+```hcl
 function "hello" {
   runtime = "rust"
   path    = "./hello"
@@ -42,12 +43,13 @@ function "hello" {
 
 gateway {
   type = "http"
-  port = 8080
+  port = 8765
   route "/" {
     function = "${function.hello}"
   }
 }
 ```
+<!-- end embly.hcl -->
 
 In this file we've defined a function called "hello" and a gateway.
 
@@ -57,31 +59,38 @@ An Embly gateway allows us to access external systems. For this project, our gat
 
 Now that we have our configuration set up we'll need to create a Rust project in the `./hello` directory. Embly functions can respond to any input or output, but since we're linking our function to an HTTP gateway we'll want to use the Embly libraries HTTP primitives. We'll start by creating a `hello/Cargo.toml` and a `hello/src/main.rs` in our project directory.
 
+<!-- begin hello/Cargo.toml -->
 ```toml
 [package]
 name = "hello"
 version = "0.0.1"
+edition = "2018"
 
 [dependencies]
-embly = "0.0.4"
+embly = "0.0.5"
 ```
+<!-- end hello/Cargo.toml -->
 
+<!-- begin hello/src/main.rs -->
 ```rust
 extern crate embly;
-use embly::http::{Body, Request, ResponseWriter, run};
-use embly::prelude::*;
-use embly::Error;
+use embly::{
+  http::{run_catch_error, Body, Request, ResponseWriter},
+  prelude::*,
+  Error,
+};
 
-fn execute(_req: Request<Body>, w: &mut ResponseWriter) -> Result<(), Error>{
-    w.write_all(b"Hello World")?; // writing our hello response bytes 
-    Ok(()) // if an error is returned the server will respond with an HTTP error
+async fn execute(_req: Request<Body>, mut w: ResponseWriter) -> Result<(), Error> {
+  w.write_all(b"Hello World")?; // writing our hello response bytes
+  Ok(()) // if an error is returned the server will respond with an HTTP error
 }
 
 // this function is run first
-fn main() -> Result<(), Error> {
-    run(execute) // this is the embly::http::run function that is specific to http responses
+fn main() {
+  run_catch_error(execute); // this is the embly::http::run function that is specific to http responses
 }
 ```
+<!-- end hello/src/main.rs -->
 
 There are a few things going on here. Our rust program has a `main()` function that Embly will run whenever it responds to a request. When an HTTP request is received our main function calls `run` and the HTTP request is passed to our `execute` function. We can then do things like ready request data, spawn other functions, access external resources, and write our response. The `ResponseWriter` can also be flushed so that a response can be returned (or streamed) during execution.
 
@@ -269,3 +278,4 @@ Nothing within Embly is encrypted, data privacy is currently ignored, this will 
 [^4]: [https://github.com/briansmith/ring/issues/657#issuecomment-396416821](https://github.com/briansmith/ring/issues/657#issuecomment-396416821)
 
 [^5]: [https://github.com/CraneStation/wasmtime/issues/71#issuecomment-477330359](https://github.com/CraneStation/wasmtime/issues/71#issuecomment-477330359)
+

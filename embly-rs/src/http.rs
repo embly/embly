@@ -50,6 +50,7 @@ use httparse;
 use std::future::Future;
 use std::io;
 use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -343,13 +344,56 @@ pub fn run<F>(to_run: fn(Request<Body>, ResponseWriter) -> F)
 where
     F: Future<Output = ()> + 'static,
 {
-    let function_id = 1;
-    let mut c = Conn::new(function_id);
+    let mut c = Conn::new(1);
     let r = build_request_from_comm(&mut c).expect("http request should be valid");
     let mut body = Body::default();
     body.conn = c.clone();
     let mut resp = ResponseWriter::new(body);
     task::Task::spawn(Box::pin(to_run(r, resp.clone())));
+    resp.function_returned = true;
+    resp.flush_response().expect("should be able to flush");
+}
+
+/// Run an http handler Function, but return a 500 response if the handler returns an error
+///
+/// ```no_run
+/// use embly::http::{Body, Request, ResponseWriter};
+/// use std::io::Write;
+/// use embly::Error;
+///
+/// async fn execute (_req: Request<Body>, mut w: ResponseWriter) -> Result<(), Error> {
+///     w.write("hello world\n".as_bytes())?;
+///     w.status("200")?;
+///     w.header("Content-Length", "12")?;
+///     w.header("Content-Type", "text/plain")?;
+///     Ok(())
+/// }
+///
+/// fn main() {
+///     ::embly::http::run_catch_error(execute);
+/// }
+///
+pub fn run_catch_error<F>(to_run: fn(Request<Body>, ResponseWriter) -> F)
+where
+    F: Future<Output = Result<(), Error>> + 'static,
+{
+    let mut c = Conn::new(1);
+    let r = build_request_from_comm(&mut c).expect("http request should be valid");
+    let mut body = Body::default();
+    body.conn = c.clone();
+    let mut resp = ResponseWriter::new(body);
+    let user_resp = resp.clone();
+    let mut error_resp = resp.clone();
+    task::Task::spawn(Box::pin(async move {
+        match to_run(r, user_resp).await {
+            Ok(_) => {}
+            Err(err) => {
+                println!("got error: {}", err);
+                error_resp.status(500).unwrap();
+                error_resp.write(&format!("{}", err).as_bytes()).unwrap();
+            }
+        }
+    }));
     resp.function_returned = true;
     resp.flush_response().expect("should be able to flush");
 }
