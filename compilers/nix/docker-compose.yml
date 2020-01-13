@@ -1,0 +1,8 @@
+version: "3.5"
+
+services:
+  app:
+    image: nixos/nix
+    volumes:
+      - ./:/root/embly
+    command: nix-shell -p bash

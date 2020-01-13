@@ -12,6 +12,6 @@ func String(length ...int) string {
 		l = length[0]
 	}
 	b := make([]byte, l)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return fmt.Sprintf("%x", b)
 }

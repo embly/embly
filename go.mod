@@ -5,6 +5,7 @@ go 1.12
 replace github.com/docker/docker v0.0.0-20170601211448-f5ec1e2936dc => github.com/docker/engine v0.0.0-20190822180741-9552f2b2fdde
 
 require (
+	github.com/bytecodealliance/lucet v0.0.0-20200110144859-4b5916182acc // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.0.0-20170601211448-f5ec1e2936dc
 	github.com/docker/go-connections v0.4.0

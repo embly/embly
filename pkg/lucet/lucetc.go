@@ -138,7 +138,9 @@ func createHomeDir() (err error) {
 
 // CompileWasmToObject runs lucetc with our bindings to create a local object file
 func CompileWasmToObject(file, out string) (err error) {
-	createHomeDir()
+	if err = createHomeDir(); err != nil {
+		return
+	}
 
 	hash, err := hashFile(file)
 	if err != nil {

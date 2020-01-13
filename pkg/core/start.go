@@ -9,8 +9,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"embly/pkg/build"
 	"embly/pkg/config"
@@ -103,62 +101,6 @@ func Start(builder *build.Builder, ui cli.Ui, startConfig StartConfig) (err erro
 	return nil
 }
 
-type statusWriter struct {
-	writer    io.Writer
-	hasHeader bool
-	header    []byte
-
-	proto      string
-	status     string
-	statusCode int
-}
-
-func (sw *statusWriter) Write(buf []byte) (ln int, err error) {
-	if !sw.hasHeader {
-		index := bytes.IndexByte(buf, byte('\n'))
-		if index == -1 {
-			index = len(buf) - 1
-		} else {
-			sw.hasHeader = true
-		}
-		sw.header = append(sw.header, buf[0:index]...)
-	}
-	return sw.writer.Write(buf)
-}
-
-type badHeaderError struct {
-	message string
-	line    string
-}
-
-func (bhe *badHeaderError) Error() string {
-	return fmt.Sprintf("%s '%s'", bhe.message, bhe.line)
-}
-
-func (sw *statusWriter) parseHeader() (err error) {
-	line := string(sw.header)
-	var i int
-	if i = strings.IndexByte(line, ' '); i == -1 {
-		return &badHeaderError{"malformed HTTP response", line}
-	}
-	sw.proto = line[:i]
-	sw.status = strings.TrimLeft(line[i+1:], " ")
-
-	statusCode := sw.status
-	if i := strings.IndexByte(sw.status, ' '); i != -1 {
-		statusCode = sw.status[:i]
-	}
-	if len(statusCode) != 3 {
-		return &badHeaderError{"malformed HTTP status code", statusCode}
-	}
-	sw.statusCode, err = strconv.Atoi(statusCode)
-	if err != nil || sw.statusCode < 0 {
-		return &badHeaderError{"malformed HTTP status code", statusCode}
-	}
-	// todo: proto
-	return nil
-}
-
 func (master *Master) functionHandlerFunc(name string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := func() error {
@@ -175,7 +117,7 @@ func (master *Master) functionHandlerFunc(name string) func(http.ResponseWriter,
 			respProto, err := httpproto.DumpRequest(r)
 			if err != nil {
 				w.WriteHeader(500)
-				w.Write([]byte(err.Error()))
+				_, _ = w.Write([]byte(err.Error()))
 			}
 			if err := protoutil.WriteMessage(masterG, &respProto); err != nil {
 				return err
@@ -183,7 +125,7 @@ func (master *Master) functionHandlerFunc(name string) func(http.ResponseWriter,
 			protoRW := httpproto.ReadWriter{ReadWriter: masterG}
 			if r.Body != nil {
 				// async?
-				io.Copy(&protoRW, r.Body)
+				_, _ = io.Copy(&protoRW, r.Body)
 			}
 			httpProto, err := protoRW.Next()
 			if err != nil {
@@ -198,7 +140,7 @@ func (master *Master) functionHandlerFunc(name string) func(http.ResponseWriter,
 			if httpProto.Status != 0 {
 				w.WriteHeader(int(httpProto.Status))
 			}
-			w.Write(httpProto.Body)
+			_, _ = w.Write(httpProto.Body)
 			for !httpProto.Eof {
 				httpProto, err = protoRW.Next()
 				if err != nil {
@@ -274,6 +216,11 @@ func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (er
 		Handler: handler,
 	}
 	master.ui.Info(fmt.Sprintf("HTTP gateway listening on port %d\n", g.Port))
-	go server.ListenAndServe()
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			panic(err)
+		}
+
+	}()
 	return nil
 }

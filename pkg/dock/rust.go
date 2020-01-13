@@ -48,6 +48,7 @@ func CompileRust(settings CompileRustSettings) (err error) {
 	cont.Cmd = []string{"sleep", "100000"}
 	cont.ExecPrefix = fmt.Sprintf("[%s]:", settings.FunctionName)
 	if err = cont.Create(); err != nil {
+		_ = err
 		// TODO: assert on "already exists" error and ignore
 		// return
 	}

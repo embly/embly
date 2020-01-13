@@ -2,16 +2,18 @@ package kv
 
 import (
 	"bytes"
+	"embly/pkg/tester"
 	"testing"
 )
 
-func TestMemorySetAndGet(t *testing.T) {
+func TestMemorySetAndGet(te *testing.T) {
+	t := tester.New(te)
 	ms := NewMemoryStore()
 
 	{
 		key := []byte("key")
 		value := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8}
-		ms.Set(key, value)
+		t.PanicOnErr(ms.Set(key, value))
 
 		v, err := ms.Get(key)
 		if err != nil {

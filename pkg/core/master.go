@@ -66,11 +66,11 @@ func NextMessage(consumer io.Reader) (msg comms_proto.Message, err error) {
 
 // Function handles the state and connection for an embly function
 type Function struct {
-	addr     uint64
-	parent   uint64
-	cmd      *exec.Cmd
-	conn     net.Conn
-	exited   int32
+	addr   uint64
+	parent uint64
+	cmd    *exec.Cmd
+	conn   net.Conn
+
 	connWait sync.WaitGroup
 	startup  comms_proto.Startup
 }
@@ -362,10 +362,11 @@ func (m *Master) Start() error {
 				continue
 			}
 
-			if msg.Exiting {
-				// log.Println("Function exiting with code", msg.Exit)
-				// TODO: cleanup?
-			}
+			// TODO: do this
+			// if msg.Exiting {
+			// 	// log.Println("Function exiting with code", msg.Exit)
+			// 	// TODO: cleanup?
+			// }
 
 			recFn.sendMsg(msg)
 		}

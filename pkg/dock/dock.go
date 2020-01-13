@@ -111,7 +111,10 @@ func (c *Client) PullImage(image string) (err error) {
 		err = errors.WithStack(err)
 		return
 	}
-	jsonmessage.DisplayJSONMessagesStream(readCloser, os.Stdout, os.Stdout.Fd(), true, nil)
+	if err = jsonmessage.DisplayJSONMessagesStream(readCloser, os.Stdout, os.Stdout.Fd(), true, nil); err != nil {
+		err = errors.WithStack(err)
+		return
+	}
 	readCloser.Close()
 	return
 }

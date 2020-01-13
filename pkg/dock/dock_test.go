@@ -65,14 +65,14 @@ func TestImageExists(t *testing.T) {
 func TestImageAge(t *testing.T) {
 	t.Skip()
 	c := newClient(t)
-	c.ImageCreated("embly/compile-rust-wasm")
-	c.ImageCreated("qoomon/docker-host")
+	_, _ = c.ImageCreated("embly/compile-rust-wasm")
+	_, _ = c.ImageCreated("qoomon/docker-host")
 
 }
 
 func TestPullImage(t *testing.T) {
 	t.Skip()
 	c := newClient(t)
-	c.PullImage("embly/vinyl")
-	c.PullImage("python:3-slim")
+	_ = c.PullImage("embly/vinyl")
+	_ = c.PullImage("python:3-slim")
 }

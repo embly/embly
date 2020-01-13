@@ -33,7 +33,7 @@ func logHandler(h http.Handler, ui cli.Ui) http.Handler {
 			"Completed %d %s in %s\n",
 			logger.Status(),
 			http.StatusText(logger.Status()),
-			time.Now().Sub(start)),
+			time.Since(start)),
 		)
 	})
 }
@@ -50,7 +50,7 @@ func singleLineLogHandler(h http.Handler, ui cli.Ui, prefix string) http.Handler
 			r.URL.Path,
 			logger.Status(),
 			http.StatusText(logger.Status()),
-			time.Now().Sub(start)),
+			time.Since(start)),
 		)
 	})
 }
@@ -153,11 +153,8 @@ type hijackCloseNotifier struct {
 // https://github.com/gorilla/handlers/blob/8a3748addc242fc560bd6d4ff28b0374c010b1b4/proxy_headers.go#L43
 var (
 	// De-facto standard header keys.
-	xForwardedFor    = http.CanonicalHeaderKey("X-Forwarded-For")
-	xForwardedHost   = http.CanonicalHeaderKey("X-Forwarded-Host")
-	xForwardedProto  = http.CanonicalHeaderKey("X-Forwarded-Proto")
-	xForwardedScheme = http.CanonicalHeaderKey("X-Forwarded-Scheme")
-	xRealIP          = http.CanonicalHeaderKey("X-Real-IP")
+	xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
+	xRealIP       = http.CanonicalHeaderKey("X-Real-IP")
 )
 
 var (

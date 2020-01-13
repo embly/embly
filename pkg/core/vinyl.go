@@ -36,7 +36,7 @@ func (v *Vinyl) sendDBRequest(msg comms_proto.Message) (resp *transport.Response
 	resp, err = db.DB.SendRequest(request)
 	v.master.ui.Output(
 		fmt.Sprintf("Vinyl: %s (%s)",
-			vinyl.RequestDescription(&request), time.Now().Sub(t)))
+			vinyl.RequestDescription(&request), time.Since(t)))
 	return
 }
 

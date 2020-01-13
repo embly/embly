@@ -56,7 +56,7 @@ func (k *KV) processRequest(msg comms_proto.Message) (err error) {
 
 func (k *KV) sendMsg(msg comms_proto.Message) {
 	if err := k.processRequest(msg); err != nil {
-		WriteMessage(k.conn, comms_proto.Message{
+		_ = WriteMessage(k.conn, comms_proto.Message{
 			Data:  []byte(err.Error()),
 			From:  msg.To,
 			To:    msg.From,
