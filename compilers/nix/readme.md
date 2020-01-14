@@ -34,3 +34,19 @@ startup:
  - (consider rewriting stack trace file locations in actual location)
  - copy resulting object files to correct directory and alert client
 
+
+
+
+## nix notes
+
+```bash
+# collect garbage and delete previous generations
+nix-collect-garbage -d
+
+# list packages that depend on this one
+nix-store -q --referrers /nix/store/jbm5xa
+
+# list packages that this package depends on
+nix-store -q --references ./result | grep ""
+```
+
