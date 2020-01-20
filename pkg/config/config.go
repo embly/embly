@@ -20,6 +20,7 @@ import (
 
 // Config represents an embly.hcl config
 type Config struct {
+	ProjectRoot  string
 	Gateways     []Gateway  `hcl:"gateway,block"`
 	Dependencies []string   `hcl:"dependencies,optional"`
 	Functions    []Function `hcl:"function,block"`
@@ -27,6 +28,23 @@ type Config struct {
 	filesMap     map[string]Files
 	Databases    []Database `hcl:"database,block"`
 	databaseMap  map[string]*Database
+}
+
+func (cfg *Config) AbsolutePath(relativePath string) string {
+	return filepath.Join(cfg.ProjectRoot, relativePath)
+}
+
+func New(path string) (cfg *Config, err error) {
+	f, l, err := FindConfigFile(path)
+	if err != nil {
+		return
+	}
+	cfg, err = ParseConfig(f)
+	if err != nil {
+		return
+	}
+	cfg.ProjectRoot = l
+	return
 }
 
 // GetFiles retireve a "files" configuration value using a reference, like "files.foo"
@@ -133,7 +151,9 @@ type DatabaseRecordIndex struct {
 }
 
 // ParseConfig will parse an embly.hcl file
-func ParseConfig(configFile io.Reader) (cfg Config, err error) {
+func ParseConfig(configFile io.Reader) (cfg *Config, err error) {
+	cfg = &Config{}
+
 	evalContext := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
 	}
@@ -149,7 +169,7 @@ func ParseConfig(configFile io.Reader) (cfg Config, err error) {
 		err = diagnostics
 		return
 	}
-	_ = gohcl.DecodeBody(file.Body, nil, &cfg)
+	_ = gohcl.DecodeBody(file.Body, nil, cfg)
 
 	functionMap := map[string]cty.Value{}
 	for _, fn := range cfg.Functions {
@@ -165,7 +185,7 @@ func ParseConfig(configFile io.Reader) (cfg Config, err error) {
 
 	// TODO: validate that static files are in the project directory
 
-	d := gohcl.DecodeBody(file.Body, evalContext, &cfg)
+	d := gohcl.DecodeBody(file.Body, evalContext, cfg)
 	if d.HasErrors() {
 		err = d
 		return

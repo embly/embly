@@ -16,7 +16,7 @@ import (
 	"embly/pkg/build"
 	"embly/pkg/config"
 	comms_proto "embly/pkg/core/proto"
-	protoutil "embly/pkg/proto-util"
+	protoutil "embly/pkg/protoutil"
 
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"

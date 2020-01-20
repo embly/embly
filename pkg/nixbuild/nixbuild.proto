@@ -1,0 +1,36 @@
+syntax = "proto3";
+package nixbuildpb;
+
+
+message ClientPayload {
+    Build build = 1;
+
+    bytes zip = 2;
+}
+
+message ServerPayload {
+    repeated OutFile files = 1;
+    repeated bytes hash_needed = 2;
+}
+
+message OutFile {
+    string name = 1;
+    bytes body = 2;
+}
+
+message Build {
+    repeated File files = 1;
+    string build_location = 2;
+}
+
+message File {
+    string path = 1;
+    string name = 2;
+    bool is_dir = 3;
+    int64 size = 4;
+    bytes hash = 5;
+}
+
+service SearchService {
+    rpc Project(stream ClientPayload) returns (stream ServerPayload);
+}

@@ -154,7 +154,7 @@ func (fs *FileSystem) zip(directories, files, globs []string) (archive io.Reader
 	return &buf, nil
 }
 
-func (fs *FileSystem) Bundle(includeObjectFiles bool) (archive io.Reader, cfg config.Config, err error) {
+func (fs *FileSystem) Bundle(includeObjectFiles bool) (archive io.Reader, cfg *config.Config, err error) {
 	cfgFile, err := fs.Open("embly.hcl")
 	if err != nil {
 		return

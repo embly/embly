@@ -3,7 +3,7 @@ package httpproto
 import (
 	"io"
 
-	protoutil "embly/pkg/proto-util"
+	protoutil "embly/pkg/protoutil"
 )
 
 type ReadWriter struct {

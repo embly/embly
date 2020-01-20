@@ -14,7 +14,7 @@ import (
 	"embly/pkg/config"
 	"embly/pkg/core/httpproto"
 	"embly/pkg/dock"
-	protoutil "embly/pkg/proto-util"
+	protoutil "embly/pkg/protoutil"
 
 	vinyl "github.com/embly/vinyl/vinyl-go"
 	"github.com/mitchellh/cli"

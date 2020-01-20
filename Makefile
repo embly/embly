@@ -26,8 +26,11 @@ $(OBJDIR)/generate_comms_proto: pkg/core/proto/comms.proto
 	cd embly-wrapper-rs && cargo build
 	touch build/generate_comms_proto
 
-all: 
+all:
 	make -j install_embly install_embly_wrapper generate_http_proto generate_comms_proto
+
+generate: generate_comms_proto generate_http_proto
+	cd pkg/nixbuild && go generate
 
 build_embly:
 	make -j install_embly install_embly_wrapper
@@ -55,15 +58,15 @@ go_test:
 wrapper_test:
 	cd embly-wrapper-rs && cargo test
 
-cargo_test: 
+cargo_test:
 	cargo test
 
 doc_test:
 	cargo test --doc
 
-install_rust_toolchain:	
+install_rust_toolchain:
 	rustup toolchain add nightly-2019-11-24
-	rustup target add wasm32-wasi --toolchain nightly-2019-11-24 
+	rustup target add wasm32-wasi --toolchain nightly-2019-11-24
 
 run_mjpeg_example: build_embly
 	cd examples/mjpeg && embly dev

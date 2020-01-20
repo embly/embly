@@ -5,11 +5,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"embly/pkg/config"
+
 	"github.com/pkg/errors"
 	"golang.org/x/tools/godoc/vfs"
 )
 
-func ZipSources(projectRoot string, buildLocation string, sources []string) (newBuildLocation string, archive io.Reader, err error) {
+func ZipSources(projectRoot string, buildLocation string, sources []string) (
+	newBuildLocation string, archive io.Reader, err error) {
+	g := config.Gateway{}
+	_ = g
 	var locations []string
 	for _, s := range sources {
 		locations = append(locations, filepath.Join(projectRoot, s))
@@ -31,6 +36,7 @@ func ZipSources(projectRoot string, buildLocation string, sources []string) (new
 	}
 
 	fs := FileSystem{ns}
+
 	a, err := fs.zip([]string{"./"}, nil, nil)
 	if err != nil {
 		err = errors.WithStack(err)

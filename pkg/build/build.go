@@ -25,14 +25,13 @@ import (
 
 // Builder build projects
 type Builder struct {
-	Config      config.Config
-	ProjectRoot string
-	ui          cli.Ui
-	Functions   map[string]Files
+	Config    *config.Config
+	ui        cli.Ui
+	Functions map[string]Files
 }
 
 func (builder *Builder) emblyBuildDir() string {
-	return filepath.Join(builder.ProjectRoot, "embly_build")
+	return filepath.Join(builder.Config.ProjectRoot, "embly_build")
 }
 
 func NewBuilderFromArchive(path string, ui cli.Ui) (builder *Builder, err error) {
@@ -92,12 +91,7 @@ func NewBuilderFromArchive(path string, ui cli.Ui) (builder *Builder, err error)
 // NewBuilder returns any errors reading and validating the configuration
 func NewBuilder(path string, ui cli.Ui) (builder *Builder, err error) {
 	builder = &Builder{ui: ui, Functions: make(map[string]Files)}
-	f, l, err := config.FindConfigFile(path)
-	if err != nil {
-		return
-	}
-	builder.Config, err = config.ParseConfig(f)
-	builder.ProjectRoot = l
+	builder.Config, err = config.New(path)
 	return
 }
 
@@ -112,7 +106,7 @@ func (builder *Builder) WatchForChangesAndRebuild() (err error) {
 
 	watching := make([]string, len(builder.Config.Functions))
 	for i, fn := range builder.Config.Functions {
-		location := filepath.Join(builder.ProjectRoot, fn.Path)
+		location := filepath.Join(builder.Config.ProjectRoot, fn.Path)
 		watching[i] = location
 		if err := w.AddRecursive(location); err != nil {
 			return err
@@ -234,7 +228,7 @@ func (builder *Builder) CompileFunctionsToWasm() (err error) {
 }
 
 func (builder *Builder) Bundle(location string, includeObjectFiles bool) (err error) {
-	fs := filesystem.FileSystem{FileSystem: vfs.OS(builder.ProjectRoot)}
+	fs := filesystem.FileSystem{FileSystem: vfs.OS(builder.Config.ProjectRoot)}
 	archive, _, err := fs.Bundle(includeObjectFiles)
 	if err != nil {
 		return
@@ -285,7 +279,7 @@ func (builder *Builder) compileFunction(fn config.Function) (err error) {
 		FunctionName:   fn.Name,
 		Sources:        fn.Sources,
 		BuildLocation:  fn.Path,
-		ProjectRoot:    builder.ProjectRoot,
+		ProjectRoot:    builder.Config.ProjectRoot,
 		DestinationDir: builder.emblyBuildDir(),
 	}); err != nil {
 		return
