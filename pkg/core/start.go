@@ -49,7 +49,7 @@ func Start(builder *build.Builder, ui cli.Ui, startConfig StartConfig) (err erro
 		}
 
 		ui.Output("Parsing file descriptor")
-		descriptor, err := dock.DescriptorForFile(filepath.Join(builder.ProjectRoot, db.Definition))
+		descriptor, err := dock.DescriptorForFile(filepath.Join(builder.Config.ProjectRoot, db.Definition))
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func (master *Master) makeFunctionHandler(function string) http.Handler {
 	), master.ui)
 }
 
-func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (err error) {
+func (master *Master) launchHTTPGateway(cfg *config.Config, g config.Gateway) (err error) {
 	defaultPort := 9276
 	if g.Port == 0 {
 		g.Port = defaultPort
@@ -184,7 +184,7 @@ func (master *Master) launchHTTPGateway(cfg config.Config, g config.Gateway) (er
 		} else if route.Files != "" {
 			file := cfg.GetFiles(route.Files)
 			filepath := filepath.Join(
-				master.builder.ProjectRoot,
+				master.builder.Config.ProjectRoot,
 				file.Path)
 			var h http.Handler
 

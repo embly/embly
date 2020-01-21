@@ -1,5 +1,4 @@
 with import <nixpkgs> { };
-with import <nixpkgs> { };
 let
   src = fetchFromGitHub {
     owner = "mozilla";
