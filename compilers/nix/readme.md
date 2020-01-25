@@ -50,3 +50,14 @@ nix-store -q --referrers /nix/store/jbm5xa
 nix-store -q --references ./result | grep ""
 ```
 
+
+## build implementation notes
+
+use a nix shell, which will then need to reference build files
+probably just write them to the embly homedir
+then run nix-shell from the homedir, which then runs a command in the tmp files
+will need to pass an arg to the nix-shell script to point to target dir and cargo dir
+
+make sure we test this in docker to ensure it doesn't rely on global state
+
+nix-shell can also handle installing dependencies. maybe best to just use it this way so that we don't have to keep build references around? not sure

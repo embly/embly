@@ -4,11 +4,14 @@ import (
 	"crypto/sha256"
 	"embly/pkg/config"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/radovskyb/watcher"
 )
 
@@ -31,7 +34,7 @@ type Project struct {
 }
 
 // NewProject should create a new project
-func NewProject(cfg *config.Config) (p *Project, err error) {
+func NewProject(cfg *config.Config) (p *Project) {
 	p = &Project{
 		watcher:           watcher.New(),
 		cfg:               cfg,
@@ -41,20 +44,87 @@ func NewProject(cfg *config.Config) (p *Project, err error) {
 		functionLocations: map[string][]config.Function{},
 		files:             map[string]*trackedFile{},
 	}
-
-	// if functions depend on shared sources watcher.Watcher will de-dupe them
 	for _, fn := range cfg.Functions {
-		if err = p.AddRecursive(fn.Path, fn); err != nil {
+		p.fnMap[fn.Name] = fn
+	}
+	return
+}
+
+func (p *Project) FunctionSources(name string) (files []string, err error) {
+	// quick and easy hack, just use watcher to crawl the files
+	tmpP := NewProject(p.cfg)
+	selected, ok := tmpP.fnMap[name]
+	if !ok {
+		err = errors.Errorf(`couldn't find function with name "%s"`, name)
+		return
+	}
+	if err = tmpP.AddFunctionFiles(selected); err != nil {
+		return
+	}
+	for name := range tmpP.watcher.WatchedFiles() {
+		files = append(files, name)
+	}
+	return
+}
+
+func (p *Project) CopyFunctionSourcesToTmp(name string) (buildDir string, err error) {
+	defer func() {
+		err = errors.WithStack(err)
+	}()
+	files, err := p.FunctionSources(name)
+	if err != nil {
+		return
+	}
+	prefix := CommonPrefix(files)
+	sort.Strings(files)
+	buildDir, err = ioutil.TempDir("", "embly-build")
+	if err != nil {
+		return
+	}
+	if err = os.Chmod(buildDir, os.ModePerm); err != nil {
+		return
+	}
+	for _, file := range files {
+		var fi os.FileInfo
+		fi, err = os.Stat(file)
+		if err != nil {
 			return
 		}
-		for _, source := range fn.Sources {
-			if err = p.AddRecursive(source, fn); err != nil {
+		newLoc := filepath.Join(buildDir, strings.TrimPrefix(file, prefix))
+		if fi.IsDir() {
+			if err = os.MkdirAll(newLoc, os.ModeDir|os.ModePerm); err != nil {
+				return
+			}
+		} else {
+			if err = CopyFile(file, newLoc); err != nil {
 				return
 			}
 		}
-		p.fnMap[fn.Name] = fn
 	}
+	return
+}
 
+func CopyFile(src, dest string) (err error) {
+	from, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer from.Close()
+
+	to, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return
+	}
+	defer to.Close()
+
+	_, err = io.Copy(to, from)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (p *Project) HashFiles() (err error) {
 	for name, fi := range p.watcher.WatchedFiles() {
 		tracked := &trackedFile{
 			fi: fi,
@@ -73,7 +143,6 @@ func NewProject(cfg *config.Config) (p *Project, err error) {
 		}
 		p.files[name] = tracked
 	}
-
 	return
 }
 
@@ -111,7 +180,25 @@ func (p *Project) NextEvent(cb func(config.Function)) {
 
 var debounceTime = time.Second * 2
 
+func (p *Project) AddFunctionFiles(fn config.Function) (err error) {
+	if err = p.AddRecursive(fn.Path, fn); err != nil {
+		return
+	}
+	for _, source := range fn.Sources {
+		if err = p.AddRecursive(source, fn); err != nil {
+			return
+		}
+	}
+	return
+}
 func (p *Project) Start() (err error) {
+	// if functions depend on shared sources watcher.Watcher will de-dupe them
+	for _, fn := range p.cfg.Functions {
+		if err = p.AddFunctionFiles(fn); err != nil {
+			return
+		}
+	}
+
 	go func() {
 		// every 1/4 second
 		if err := p.watcher.Start(time.Millisecond * 250); err != nil {

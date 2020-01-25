@@ -25,7 +25,7 @@ func CreateHomeDir() (err error) {
 	if err != nil {
 		return
 	}
-	for _, folder := range []string{"./", "./cache", "./nix"} {
+	for _, folder := range []string{"./", "./cache", "./nix", "./rust-target"} {
 		loc := filepath.Join(dir, folder)
 		_, err = os.Stat(loc)
 		if err != nil {
