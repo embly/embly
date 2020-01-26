@@ -53,7 +53,7 @@ nix-store -q --references ./result | grep ""
 
 ## build implementation notes
 
-use a nix shell, which will then need to reference build files
+use a nix shell --pure, which will then need to reference build files
 probably just write them to the embly homedir
 then run nix-shell from the homedir, which then runs a command in the tmp files
 will need to pass an arg to the nix-shell script to point to target dir and cargo dir

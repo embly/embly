@@ -50,7 +50,7 @@ func NewProject(cfg *config.Config) (p *Project) {
 	return
 }
 
-func (p *Project) FunctionSources(name string) (files []string, err error) {
+func (p *Project) FunctionSources(name string) (path string, files []string, err error) {
 	// quick and easy hack, just use watcher to crawl the files
 	tmpP := NewProject(p.cfg)
 	selected, ok := tmpP.fnMap[name]
@@ -58,6 +58,7 @@ func (p *Project) FunctionSources(name string) (files []string, err error) {
 		err = errors.Errorf(`couldn't find function with name "%s"`, name)
 		return
 	}
+	path = filepath.Join(p.cfg.ProjectRoot, selected.Path) + "/"
 	if err = tmpP.AddFunctionFiles(selected); err != nil {
 		return
 	}
@@ -67,23 +68,24 @@ func (p *Project) FunctionSources(name string) (files []string, err error) {
 	return
 }
 
-func (p *Project) CopyFunctionSourcesToTmp(name string) (buildDir string, err error) {
+func (p *Project) CopyFunctionSourcesToBuild(path, name string) (buildDir string, err error) {
 	defer func() {
 		err = errors.WithStack(err)
 	}()
-	files, err := p.FunctionSources(name)
+	functionPath, files, err := p.FunctionSources(name)
 	if err != nil {
 		return
 	}
 	prefix := CommonPrefix(files)
 	sort.Strings(files)
-	buildDir, err = ioutil.TempDir("", "embly-build")
+	buildDir, err = ioutil.TempDir(path, "embly-build")
 	if err != nil {
 		return
 	}
 	if err = os.Chmod(buildDir, os.ModePerm); err != nil {
 		return
 	}
+
 	for _, file := range files {
 		var fi os.FileInfo
 		fi, err = os.Stat(file)
@@ -101,6 +103,10 @@ func (p *Project) CopyFunctionSourcesToTmp(name string) (buildDir string, err er
 			}
 		}
 	}
+
+	// don't return the base buildDir, return the path where the function is
+	buildDir = filepath.Join(buildDir, strings.TrimPrefix(functionPath, prefix))
+
 	return
 }
 

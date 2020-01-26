@@ -12,6 +12,8 @@ func TestNixBuild(te *testing.T) {
 		t.Skip()
 		return
 	}
-	t.PanicOnErr(CleanAllDependencies())
-	t.PanicOnErr(BuildRust())
+	builder, err := NewBuilder()
+	t.PanicOnErr(err)
+	t.PanicOnErr(builder.CleanAllDependencies())
+	t.PanicOnErr(builder.BuildRust())
 }

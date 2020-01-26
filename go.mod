@@ -21,7 +21,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/radovskyb/watcher v1.0.7
-	github.com/rakyll/statik v0.1.6
+	github.com/rakyll/statik v0.1.7-0.20191104211043-6b2f3ee522b6
 	github.com/segmentio/textio v1.2.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
