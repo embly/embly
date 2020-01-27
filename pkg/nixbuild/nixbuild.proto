@@ -19,8 +19,9 @@ message OutFile {
 }
 
 message Build {
-    repeated File files = 1;
-    string build_location = 2;
+    string name = 1;
+    repeated File files = 2;
+    string build_location = 3;
 }
 
 message File {
@@ -31,6 +32,6 @@ message File {
     bytes hash = 5;
 }
 
-service SearchService {
-    rpc Project(stream ClientPayload) returns (stream ServerPayload);
+service BuildService {
+    rpc Build(stream ClientPayload) returns (stream ServerPayload);
 }
