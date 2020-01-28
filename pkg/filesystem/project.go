@@ -15,9 +15,28 @@ import (
 	"github.com/radovskyb/watcher"
 )
 
-type trackedFile struct {
-	fi   os.FileInfo
-	hash []byte
+type FileInfo struct {
+	os.FileInfo
+	Hash []byte
+}
+
+func (fi *FileInfo) PopulateHash(path string) (err error) {
+	if fi.IsDir() {
+		return
+	}
+	var f *os.File
+	f, err = os.Open(path)
+	if err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+	h := sha256.New()
+	if _, err = io.Copy(h, f); err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+	fi.Hash = h.Sum(nil)
+	return
 }
 
 type Project struct {
@@ -30,7 +49,7 @@ type Project struct {
 	fnMap      map[string]config.Function
 	fnTimerMap map[string]*time.Timer
 
-	files map[string]*trackedFile
+	files map[string]*FileInfo
 }
 
 // NewProject should create a new project
@@ -42,7 +61,7 @@ func NewProject(cfg *config.Config) (p *Project) {
 		fnMap:             map[string]config.Function{},
 		fnTimerMap:        map[string]*time.Timer{},
 		functionLocations: map[string][]config.Function{},
-		files:             map[string]*trackedFile{},
+		files:             map[string]*FileInfo{},
 	}
 	for _, fn := range cfg.Functions {
 		p.fnMap[fn.Name] = fn
@@ -50,7 +69,7 @@ func NewProject(cfg *config.Config) (p *Project) {
 	return
 }
 
-func (p *Project) FunctionSources(name string) (path string, files []string, err error) {
+func (p *Project) FunctionWatchedFiles(name string) (path string, files map[string]*FileInfo, err error) {
 	// quick and easy hack, just use watcher to crawl the files
 	tmpP := NewProject(p.cfg)
 	selected, ok := tmpP.fnMap[name]
@@ -60,9 +79,20 @@ func (p *Project) FunctionSources(name string) (path string, files []string, err
 	}
 	path = filepath.Join(p.cfg.ProjectRoot, selected.Path) + "/"
 	if err = tmpP.AddFunctionFiles(selected); err != nil {
+		err = errors.WithStack(err)
 		return
 	}
-	for name := range tmpP.watcher.WatchedFiles() {
+	filesInt := tmpP.watcher.WatchedFiles()
+	files = make(map[string]*FileInfo)
+	for name, fi := range filesInt {
+		files[name] = &FileInfo{FileInfo: fi}
+	}
+	return
+}
+
+func (p *Project) FunctionSources(name string) (path string, files []string, err error) {
+	path, fileMap, err := p.FunctionWatchedFiles(name)
+	for name := range fileMap {
 		files = append(files, name)
 	}
 	return
@@ -126,28 +156,6 @@ func CopyFile(src, dest string) (err error) {
 	_, err = io.Copy(to, from)
 	if err != nil {
 		return
-	}
-	return
-}
-
-func (p *Project) HashFiles() (err error) {
-	for name, fi := range p.watcher.WatchedFiles() {
-		tracked := &trackedFile{
-			fi: fi,
-		}
-		if !fi.IsDir() {
-			var f *os.File
-			f, err = os.Open(name)
-			if err != nil {
-				return
-			}
-			h := sha256.New()
-			if _, err = io.Copy(h, f); err != nil {
-				return
-			}
-			tracked.hash = h.Sum(nil)
-		}
-		p.files[name] = tracked
 	}
 	return
 }

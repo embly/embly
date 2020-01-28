@@ -1,37 +1,43 @@
 syntax = "proto3";
 package nixbuildpb;
 
-
 message ClientPayload {
-    Build build = 1;
+  Build build = 1;
+  CompressedFile file = 2;
+}
 
-    bytes zip = 2;
+message CompressedFile {
+  bytes body = 1;
+  string name = 2;
+  bytes requested_hash = 3;
+  string path = 4;
 }
 
 message ServerPayload {
-    repeated OutFile files = 1;
-    repeated bytes hash_needed = 2;
+  repeated CompressedFile files = 1;
+  repeated HashRequest hash_needed = 2;
+  repeated string log = 3;
 }
 
-message OutFile {
-    string name = 1;
-    bytes body = 2;
+message HashRequest {
+  bytes hash = 1;
+  string path = 2;
 }
 
 message Build {
-    string name = 1;
-    repeated File files = 2;
-    string build_location = 3;
+  string name = 1;
+  repeated File files = 2;
+  string build_location = 3;
 }
 
 message File {
-    string path = 1;
-    string name = 2;
-    bool is_dir = 3;
-    int64 size = 4;
-    bytes hash = 5;
+  string path = 1;
+  string name = 2;
+  bool is_dir = 3;
+  int64 size = 4;
+  bytes hash = 5;
 }
 
 service BuildService {
-    rpc Build(stream ClientPayload) returns (stream ServerPayload);
+  rpc Build(stream ClientPayload) returns (stream ServerPayload);
 }

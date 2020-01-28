@@ -27,6 +27,7 @@ func CreateHomeDir() (err error) {
 	}
 	for _, folder := range []string{
 		"./", "./nix",
+		"./blob_cache",
 		"./build_context",
 		"./build_context/rust_target",
 		"./build_context/cargo_home",
