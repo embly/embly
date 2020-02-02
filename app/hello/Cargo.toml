@@ -4,4 +4,5 @@ version = "0.0.1"
 edition = "2018"
 
 [dependencies]
-embly = "0.0.4"
+embly = { path = "../../embly-rs" }
+http = "0.1.18"

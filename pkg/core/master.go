@@ -276,7 +276,7 @@ func (m *Master) NewFunction(name string, parent uint64, addr *uint64, dbs []*co
 		"EMBLY_SOCKET":   SockAddr,
 		"EMBLY_MODULE":   location,
 		"RUST_BACKTRACE": "ALL",
-		// "RUST_LOG":       "embly_wrapper",
+		"RUST_LOG":       "embly_wrapper",
 	})
 	fn.cmd = cmd
 	fn.parent = parent
@@ -288,7 +288,7 @@ func (m *Master) functionStartProcess(conn net.Conn) (err error) {
 	addrBytes := make([]byte, 8)
 	ln, err := conn.Read(addrBytes)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if ln != 8 {
 		log.Fatalf("incorrect read length %d", ln)
@@ -315,7 +315,7 @@ func (m *Master) functionStartProcess(conn net.Conn) (err error) {
 func (m *Master) Start() error {
 	return m.unixListen(func(conn net.Conn) {
 		if err := m.functionStartProcess(conn); err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 
 		for {

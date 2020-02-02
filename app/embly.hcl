@@ -7,6 +7,15 @@ function "auth" {
   ]
 }
 
+function "hello" {
+  runtime = "rust"
+  path    = "./hello"
+  sources = [
+    "../embly-rs",
+  ]
+}
+
+
 gateway {
   type = "http"
   port = 8082
@@ -21,6 +30,9 @@ gateway {
   route "/api/auth/" {
     function = "${function.auth}"
   }
+  route "/hello/" {
+    function = "${function.hello}"
+  }
 
 }
 
@@ -33,4 +45,3 @@ files "frontend" {
 files "blog" {
   path = "./blog/dist/"
 }
-
