@@ -48,7 +48,7 @@ def foo(c):
     c.push("hello")
 
 def main():
-    resp, err = http.get("http://www.embly.run")
+    resp, err = http.get("https://www.embly.run/hello/")
     if err:
         return print(err)
 
@@ -90,9 +90,9 @@ def main():
     wg = sync.WaitGroup()
     wg.Add(3)
     urls = [
-        "https://api.exchangeratesapi.io/latest",
-        "https://api.exchangeratesapi.io/latest",
-        "https://api.exchangeratesapi.io/latest",
+        "https://www.embly.run/hello/",
+        "https://www.embly.run/hello/",
+        "https://www.embly.run/hello/",
     ]
     for url in urls:
         star.go(get_url, url, wg)
