@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Star Playground</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css" integrity="sha256-2YQRJMXD7pIAPHiXr0s+vlRWA7GYJEK0ARns7k2sbHY=" crossorigin="anonymous" />
+    <style>
+        body {
+            overflow: hidden;
+        }
+
+        #editor {
+            height: 615px;
+        }
+        pre.output {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://ajaxorg.github.io/ace-builds/src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+    <pre id="editor">
+http = require("net/http")
+ioutil = require("io/ioutil")
+sync = require("sync")
+star = require("star")
+time = require("time")
+
+
+def get_url(url, wg):
+    resp, err = http.Get(url)
+    if err:
+        return print(err)
+    b, err = ioutil.ReadAll(resp.Body)
+    if err:
+        return print(err)
+    body, err = star.bytes_to_string(b)
+    if err:
+        return print(err)
+    time.Sleep(time.Second * 2)
+    wg.Done()
+
+
+def main():
+    wg = sync.WaitGroup()
+    wg.Add(3)
+    urls = [
+        "https://www.embly.run/hello/",
+        "https://www.embly.run/hello/",
+        "https://www.embly.run/hello/",
+    ]
+    for url in urls:
+        star.go(get_url, url, wg)
+    wg.Wait()</pre>
+    <a class="button" href="#">Run</a>
+    <pre class="output">
+sdafs
+    </pre>
+
+<script>
+        var editor = ace.edit("editor");
+        editor.setTheme("ace/theme/solarized_dark");
+        editor.session.setMode("ace/mode/python");
+    </script>
+</body>
+
+</html>

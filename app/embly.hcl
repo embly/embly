@@ -34,6 +34,13 @@ gateway {
     function = "${function.hello}"
   }
 
+  route "/star-playground" {
+    files = "${files.star-playground}"
+  }
+}
+
+files "star-playground" {
+  path = "./star-playground"
 }
 
 files "frontend" {
