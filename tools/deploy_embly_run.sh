@@ -10,3 +10,4 @@ docker pull embly/app:latest
 docker kill embly_run || true
 docker rm embly_run || true
 docker run --name=embly_run -d -p 8080:8082 embly/app
+docker logs -f embly_run

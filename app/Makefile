@@ -8,7 +8,7 @@ frontend/node_modules: frontend/package.json
 	cd frontend && yarn
 
 build_blog: $(OBJDIR)/build_blog
-$(OBJDIR)/build_blog: blog/**/*
+$(OBJDIR)/build_blog: blog/content/* blog/templates/* blog/sass/* blog/static/*
 	cd blog && ./build.sh
 	touch build/build_blog
 
@@ -26,3 +26,6 @@ build_docker_image: embly_bundle
 push_docker_image: build_docker_image
 	docker --config ~/.docker-embly push embly/app:latest
 
+run:
+	cd .. && make build_embly
+	embly dev
