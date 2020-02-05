@@ -22,4 +22,4 @@ nixpkgs.zola \
 && rustup toolchain add stable \
 && rustup toolchain add  nightly-2019-11-24 \
 && rustup target add wasm32-wasi --toolchain  nightly-2019-11-24 \
-&& nix-shell -p bash --run 'cargo install --version 0.4.3 lucetc || true'"
+&& nix-shell -p bash --run 'if [ \"lucetc 0.4.3\" != \"\$(lucetc --version)\" ]; then cargo install --force --version 0.4.3 lucetc; fi'"
