@@ -11,9 +11,9 @@ homepage = "https://embly.run"
 [dependencies]
 protobuf = "2.8.1"
 rand = "0.7.0"
-lucet-wasi = "0.4.1"
-lucet-runtime = "0.4.1"
-lucet-runtime-internals = "0.4.1"
+lucet-wasi = "0.4.3"
+lucet-runtime = "0.4.3"
+lucet-runtime-internals = "0.4.3"
 failure = {version = "~0.1", features = ["std"], default-features = false}
 log = "0.4"
 env_logger = "0.6.2"
@@ -28,7 +28,7 @@ lazy_static = "1.4"
 [workspace]
 # # https://github.com/johnthagen/min-sized-rust
 # [profile.release]
-# opt-level = 'z' 
+# opt-level = 'z'
 # lto = true
 # codegen-units = 1
 # panic = 'abort'

@@ -16,6 +16,15 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" />
   <link rel="stylesheet" href="{{ config.base_url | safe }}style.css" />
   {% endblock head %}
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-157577881-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'UA-157577881-1');
+  </script>
+
 </head>
 
 <body class="sans-serif w-90 w-80-m w-60-ns center mv2 mv5-ns">
@@ -25,7 +34,7 @@
 
   <footer class="mt5">
     <div class="">
-      <a href="{{ config.base_url | safe }}">home</a> 
+      <a href="{{ config.base_url | safe }}">home</a>
     </div>
     <footer>
       <script>
@@ -50,7 +59,8 @@
             "#4f5b66": "#c0c5ce",
             "rgb(79, 91, 102)": "#c0c5ce",
           }
-          const invert = (node) => {
+          const invert = (node) =>
+          {
             if (!node.style) {
               return
             }
@@ -58,7 +68,8 @@
             swapMatch(node.style, "color")
           }
 
-          const swapMatch = (dict, key) => {
+          const swapMatch = (dict, key) =>
+          {
             const match = colorMap[dict[key]];
             if (match) {
               dict[key] = match
