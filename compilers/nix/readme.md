@@ -61,3 +61,20 @@ will need to pass an arg to the nix-shell script to point to target dir and carg
 make sure we test this in docker to ensure it doesn't rely on global state
 
 nix-shell can also handle installing dependencies. maybe best to just use it this way so that we don't have to keep build references around? not sure
+
+## cachix
+
+```bash
+   0 nix-env -iA cachix -f https://cachix.org/api/v1/install
+   1 cachix use embly
+   2 nix-env --uninstall cachix
+   3 nix-collect-garbage
+   4 nix-build ~/embly/protoc.nix
+   5 ncdu
+   6 cat /etc/nix/nix.conf
+   7 nix-env -iA cachix -f https://cachix.org/api/v1/install
+   8 export CACHIX_SIGNING_KEY=[removed]
+   9 nix-build ~/embly/lucetc.nix | cachix push embly
+  10 nix-build ~/embly/wrapper.nix | cachix push embly
+  11 history
+  ```

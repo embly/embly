@@ -1,4 +1,5 @@
 with import <nixpkgs> { };
+
 let
   src = fetchFromGitHub {
     owner = "mozilla";
@@ -8,4 +9,4 @@ let
     sha256 = "18h0nvh55b5an4gmlgfbvwbyqj91bklf1zymis6lbdh75571qaz0";
   };
 in with import "${src.out}/rust-overlay.nix" pkgs pkgs;
-(rustChannelOfTargets "nightly" "2019-12-30" [ "wasm32-wasi" ])
+(rustChannelOfTargets "nightly" "2020-01-10" [ "wasm32-wasi" ])

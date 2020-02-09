@@ -5,4 +5,5 @@ services:
     image: nixos/nix
     volumes:
       - ./:/root/embly
-    command: nix-shell -p bash
+    # command: nix-shell -p bash
+    command: sh
