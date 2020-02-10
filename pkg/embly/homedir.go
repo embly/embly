@@ -2,20 +2,20 @@ package embly
 
 import (
 	"os"
-	"os/user"
 	"path/filepath"
 
+	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 )
 
 // EmblyDir gets the location of the embly directory
 func EmblyDir() (dir string, err error) {
-	usr, err := user.Current()
+	home, err := homedir.Dir()
 	if err != nil {
 		err = errors.WithStack(err)
 		return
 	}
-	dir = filepath.Join(usr.HomeDir, "./.embly/")
+	dir = filepath.Join(home, "./.embly/")
 	return
 }
 

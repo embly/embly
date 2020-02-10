@@ -44,6 +44,17 @@ push_embly_image:
 test:
 	make -j wrapper_test cargo_test go_test
 
+
+build_build_server:
+	cd cmd/build-server \
+	&& docker -l=info build -f ./Dockerfile -t embly/build-server ../..
+
+build_server_shell:
+	docker run -it embly/build-server sh
+
+push_build_server: build_build_server
+	docker --config=~/.docker-embly  push embly/build-server
+
 build_examples: build_embly
 	cd examples/mjpeg && embly build
 	cd examples/kv && embly build
