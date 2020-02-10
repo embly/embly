@@ -57,7 +57,10 @@ func TestProjectCopy(te *testing.T) {
 	cfg, err := config.New(loc)
 	t.PanicOnErr(err)
 	project := NewProject(cfg)
-	dir, err := project.CopyFunctionSourcesToTmp("foo")
+	dir, err := project.CopyFunctionSourcesToBuild("", "foo")
+	// we need the path of the root, not the function path
+	dir = filepath.Join(dir, "../../")
+
 	t.PanicOnErr(err)
 	files := []string{}
 	t.PanicOnErr(filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {

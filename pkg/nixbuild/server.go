@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -177,8 +178,18 @@ func (b *Builder) hashedFileExists(hash []byte) (exists bool) {
 	return err == nil
 }
 
-func (b *Builder) startServer() (err error) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9276))
+var DefaultPort = 9276
+
+func (b *Builder) StartServer() (err error) {
+	portNumber := DefaultPort
+	port := os.Getenv("PORT")
+	if port != "" {
+		portNumber, err = strconv.Atoi(strings.Trim(port, " "))
+		if err != nil {
+			return errors.Errorf(`PORT environment variable "%s" is not a valid number`, port)
+		}
+	}
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", portNumber))
 	if err != nil {
 		return
 	}

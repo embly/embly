@@ -26,7 +26,7 @@ func TestClientServer(te *testing.T) {
 	builder.SetProject(cfg)
 
 	go func() {
-		if err := builder.startServer(); err != nil {
+		if err := builder.StartServer(); err != nil {
 			t.Fatal(err)
 		}
 	}()
