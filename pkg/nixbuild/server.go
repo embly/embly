@@ -3,13 +3,16 @@ package nixbuild
 import (
 	"bytes"
 	"compress/zlib"
+	"context"
 	"crypto/sha256"
+	"embly/pkg/dock"
 	"embly/pkg/filesystem"
 	nixbuildpb "embly/pkg/nixbuild/pb"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,13 +23,26 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	DefaultPort             = 9276
+	EmblyBuildVolumeName    = "embly-build-volume"
+	EmblyBuildContainerName = "embly-build"
+	EmblyBuildImageName     = "embly/build-server"
+)
+
 type BuildServiceServer struct {
 	builder *Builder
 }
 
+func (service *BuildServiceServer) Health(ctx context.Context, p *nixbuildpb.HealthPayload) (resp *nixbuildpb.HealthResponse, err error) {
+	resp = &nixbuildpb.HealthResponse{
+		Code: http.StatusOK,
+	}
+	return
+}
+
 func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildServer) (err error) {
 	defer func() {
-		fmt.Printf("Server returned with error: %+v\n", err)
 		err = errors.WithStack(err)
 	}()
 	payload, err := server.Recv()
@@ -66,7 +82,7 @@ func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildSer
 			break
 		}
 		payload, err = server.Recv()
-		fmt.Println("SERVER: ", payload)
+
 		if err != nil {
 			return
 		}
@@ -74,7 +90,7 @@ func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildSer
 		// the hash may have changed under our feet if edits happened during an upload
 		// so recompute the hash and update it if we need to
 		thisHash, err = service.builder.writeFileToBlobCache(payload.File)
-		fmt.Println(err)
+
 		if err != nil {
 			return
 		}
@@ -99,6 +115,7 @@ func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildSer
 		return
 	}
 	fmt.Println(result)
+	// server.Send(*nixbuildpb.ServerPayload)
 	return
 }
 
@@ -178,8 +195,6 @@ func (b *Builder) hashedFileExists(hash []byte) (exists bool) {
 	return err == nil
 }
 
-var DefaultPort = 9276
-
 func (b *Builder) StartServer() (err error) {
 	portNumber := DefaultPort
 	port := os.Getenv("PORT")
@@ -198,4 +213,36 @@ func (b *Builder) StartServer() (err error) {
 		builder: b,
 	})
 	return b.server.Serve(lis)
+}
+
+func (b *Builder) startDockerServer() (err error) {
+	defer func() {
+		err = errors.WithStack(err)
+	}()
+	dc, err := dock.NewClient()
+	if err != nil {
+		return
+	}
+	if err = dc.DownloadImageIfStaleOrUnavailable(EmblyBuildImageName); err != nil {
+		return
+	}
+	var ok bool
+	if ok, err = dc.VolumeExists(EmblyBuildVolumeName); err != nil {
+		return err
+	}
+	if !ok {
+		if err = dc.CreateVolume(EmblyBuildVolumeName); err != nil {
+			return
+		}
+	}
+
+	cont := dc.NewContainer(EmblyBuildContainerName, EmblyBuildImageName)
+	cont.Cmd = []string{"build-server"}
+
+	// copies data on first attach
+	cont.Binds[EmblyBuildVolumeName] = "/nix"
+	cont.Ports[fmt.Sprint(DefaultPort)] = fmt.Sprint(DefaultPort)
+	_ = cont.Create()
+
+	return cont.Start()
 }

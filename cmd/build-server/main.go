@@ -6,11 +6,11 @@ import (
 )
 
 func main() {
-	builder, err := nixbuild.NewBuilder(nixbuild.BuildConfig{})
+	builder, err := nixbuild.NewBuildServer()
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	log.Println("starting server")
 	if err := builder.StartServer(); err != nil {
 		log.Fatal(err)
 	}

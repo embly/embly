@@ -21,13 +21,15 @@ func TestClientServer(te *testing.T) {
 		return
 	}
 
-	builder, err := NewBuilder(BuildConfig{})
+	builder, err := NewBuilder()
+	t.PanicOnErr(builder.writeNixFiles())
+
 	t.PanicOnErr(err)
 	builder.SetProject(cfg)
 
 	go func() {
 		if err := builder.StartServer(); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	time.Sleep(time.Second)

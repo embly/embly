@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -16,15 +17,45 @@ import (
 	nixbuildpb "embly/pkg/nixbuild/pb"
 )
 
+	unc (b *Builder) checkForBuildServer() bool {
+	conn, err := grpc.Dial(
+		"localhost:9276",
+		grpc.WithInsecure(),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			MinConnectTimeout: time.Millisecond * 300,
+		}))
+	if err != nil {
+		return false
+	}
+	b.client = nixbuildpb.NewBuildServiceClient(conn)
+	return b.serverHealthy() == nil
+}
+
+func (b *Builder) serverHealthy() (err error) {
+	if b.client == nil {
+		return errors.New("client doesn't exist")
+	}
+	resp, err := b.client.Health(context.Background(), &nixbuildpb.HealthPayload{})
+	if err != nil {
+		return err
+	}
+	if resp.Code < 300 {
+		return nil
+	}
+	return errors.Errorf(
+		`got unhealthy build server response code %d with message "%s"`,
+		resp.Code, resp.Msg)
+}
 func (b *Builder) connectToBuildServer() (err error) {
+	if err = b.serverHealthy(); err != nil {
+		return
+	}
 	conn, err := grpc.Dial("localhost:9276", grpc.WithInsecure())
 	if err != nil {
 		return
 	}
 	b.client = nixbuildpb.NewBuildServiceClient(conn)
-	// health endpoint check?
-
-	return nil
+	return b.serverHealthy()
 }
 
 func WriteCompressedFile(file *nixbuildpb.CompressedFile, dir string) (err error) {

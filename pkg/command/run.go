@@ -66,10 +66,11 @@ func (f *runCommand) run(args []string) (err error) {
 			return
 		}
 	} else {
-		builder, err = runBuild(location)
-		if err != nil {
-			return
-		}
+		// TODO
+		// builder, err = runBuild(location)
+		// if err != nil {
+		// 	return
+		// }
 	}
 
 	if len(builder.Config.Gateways) == 0 {

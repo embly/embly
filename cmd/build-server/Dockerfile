@@ -1,4 +1,4 @@
-FROM golang:latest AS go
+FROM golang:1.13-buster AS go
 
 WORKDIR /embly
 

@@ -19,8 +19,10 @@ func TestNixBuild(te *testing.T) {
 		return
 	}
 
-	builder, err := NewBuilder(BuildConfig{})
+	builder, err := NewBuilder()
 	t.PanicOnErr(err)
+
+	t.PanicOnErr(builder.writeNixFiles())
 
 	builder.SetProject(cfg)
 	t.PanicOnErr(builder.CleanAllDependencies())

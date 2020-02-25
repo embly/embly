@@ -9,61 +9,87 @@ import (
 	_ "embly/pkg/nixbuild/statik"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 
+	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 	"github.com/rakyll/statik/fs"
 	"google.golang.org/grpc"
 )
 
 type Builder struct {
+	ui cli.Ui
+
 	emblyDir string
 	project  *filesystem.Project
+
+	cfg *config.Config
 
 	server *grpc.Server
 	client nixbuildpb.BuildServiceClient
 
-	remoteBuild string
+	useLocalNix bool
 }
 
-type BuildConfig struct {
-	RemoteBuild string
-}
-
+// NixCommandExists tries to run the nix command to see if it exists in the system
 func NixCommandExists() bool {
 	cmd := exec.Command("nix")
 	_, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
-func NewBuilder(buildConfig BuildConfig) (b *Builder, err error) {
-	b = &Builder{
-		remoteBuild: buildConfig.RemoteBuild,
-	}
-	if b.remoteBuild == "" {
-		if !NixCommandExists() {
-			err = errors.New(
-				"builder is configured to use nix locally, but the nix command doesn't exist")
-			return
-		}
-	}
-	if err = embly.CreateHomeDir(); err != nil {
+// NewClientBuilder creates a new builder, but prompts the user if it's unclear
+// if a build server should be used or local nix
+func NewClientBuilder(ui cli.Ui) (b *Builder, err error) {
+	b, err = NewBuilder()
+	b.ui = ui
+
+	if b.checkForBuildServer() {
 		return
 	}
-	b.emblyDir, err = embly.EmblyDir()
+
+	_ = NixCommandExists()
+	// check for linux...
+	// maybe with the nix command?
+	b.useLocalNix = false // TODO
+
+	resp, err := b.ui.Ask("Would you like to start a build server?")
+	if err != nil {
+		return
+	}
+	if strings.Contains(resp, "y") {
+		if err = b.startDockerServer(); err != nil {
+			return
+		}
+		return
+	}
+	err = errors.New("unable to start")
+	return
+}
+
+// NewBuildServer creates a new server that's intended to be run as a server
+func NewBuildServer() (b *Builder, err error) {
+	b, err = NewBuilder()
 	if err != nil {
 		return
 	}
 	if err = b.writeNixFiles(); err != nil {
 		return
 	}
+	return
+}
+
+func NewBuilder() (b *Builder, err error) {
+	b = &Builder{}
+	if err = embly.CreateHomeDir(); err != nil {
+		return
+	}
+	b.emblyDir, err = embly.EmblyDir()
 	return
 }
 
@@ -88,6 +114,13 @@ func (b *Builder) CleanAllDependencies() (err error) {
 	return
 }
 
+func (b *Builder) Build(name string) (result string, err error) {
+	if b.useLocalNix {
+		return b.BuildFunction(name)
+	} else {
+		return b.startRemoteBuild(name)
+	}
+}
 func (b *Builder) BuildDirectory(dir, functionName string) (result string, err error) {
 	result, err = ioutil.TempDir(b.emblyLoc("./result/"), "")
 	if err != nil {

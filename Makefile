@@ -47,8 +47,8 @@ test:
 
 build_build_server:
 	cd cmd/build-server \
-	&& docker -l=info build -f ./Dockerfile -t embly/build-server ../..
-
+	&& docker -l=info build -f ./Dockerfile -t embly/build-server ../.. \
+	&& docker kill embly-build || true
 build_server_shell:
 	docker run -it embly/build-server sh
 
@@ -90,6 +90,9 @@ bundle_kv_example: build_embly
 
 bundle_project_example: build_embly
 	cd examples/project && embly bundle
+
+new_build: install_embly
+	cd examples/hello-world && embly build
 
 run_project_example: build_embly
 	cd examples/project && embly dev

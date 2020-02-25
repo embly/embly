@@ -37,7 +37,16 @@ message File {
   int64 size = 4;
   bytes hash = 5;
 }
+message HealthPayload {
+
+}
+message HealthResponse {
+  int32 code = 1;
+  string msg = 2;
+}
 
 service BuildService {
   rpc Build(stream ClientPayload) returns (stream ServerPayload);
+
+  rpc Health(HealthPayload) returns (HealthResponse);
 }

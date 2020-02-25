@@ -49,6 +49,7 @@ func (w *wrapper) Run(args []string) int {
 			return cli.RunResultHelp
 		}
 		UI.Error(err.Error())
+		fmt.Printf("%+v", err)
 		return 1
 	}
 	return 0

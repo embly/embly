@@ -31,11 +31,11 @@ Usage: embly dev [options] (<location>)
 embly dev ./
 
 Run a local embly project for development. This mode is similar to "embly run"
-but it rebuilds functions when their source changes and will enable other 
-development features. 
+but it rebuilds functions when their source changes and will enable other
+development features.
 
 Running without a <location> will default to the current working directory. If
-there isn't an embly.hcl in the current directly embly will crawl all parent 
+there isn't an embly.hcl in the current directly embly will crawl all parent
 directories to see if one exists.`
 }
 
@@ -49,10 +49,7 @@ func (f *devCommand) run(args []string) (err error) {
 
 	var builder *build.Builder
 
-	builder, err = runBuild(location)
-	if err != nil {
-		return
-	}
+	_ = location
 
 	if len(builder.Config.Gateways) == 0 {
 		UI.Info("No gateways, nothing to run")
