@@ -121,7 +121,8 @@ func (b *Builder) Build(name string) (result string, err error) {
 		return b.startRemoteBuild(name)
 	}
 }
-func (b *Builder) BuildDirectory(dir, functionName string) (result string, err error) {
+
+func (b *Builder) BuildDirectory(dir, functionName string, logWriter io.Writer) (result string, err error) {
 	result, err = ioutil.TempDir(b.emblyLoc("./result/"), "")
 	if err != nil {
 		return
@@ -144,8 +145,8 @@ func (b *Builder) BuildDirectory(dir, functionName string) (result string, err e
 			fmt.Sprintf("CARGO_TARGET_DIR=%s", b.emblyLoc("./build_context/rust_target")),
 			fmt.Sprintf("CARGO_HOME=%s", b.emblyLoc("./build_context/cargo_home")),
 		}
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
+		cmd.Stderr = logWriter
+		cmd.Stdout = logWriter
 
 		if err = cmd.Run(); err != nil {
 			return
@@ -178,8 +179,8 @@ func (b *Builder) BuildDirectory(dir, functionName string) (result string, err e
 			// 	"LDFLAGS=-dylib -dead_strip -export_dynamic -undefined dynamic_lookup",
 			// 	"LD=/nix/store/qlqy7maq14k4wxlc16yjikf12x5b0dln-cctools/bin/ld",
 		}
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
+		cmd.Stderr = logWriter
+		cmd.Stdout = logWriter
 
 		if err = cmd.Run(); err != nil {
 			return
@@ -202,7 +203,7 @@ func (b *Builder) BuildFunction(name string) (result string, err error) {
 		return
 	}
 	defer os.RemoveAll(dir)
-	return b.BuildDirectory(dir, name)
+	return b.BuildDirectory(dir, name, os.Stdout)
 }
 
 func (b *Builder) writeNixFiles() (err error) {

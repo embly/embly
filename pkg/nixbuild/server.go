@@ -41,6 +41,20 @@ func (service *BuildServiceServer) Health(ctx context.Context, p *nixbuildpb.Hea
 	return
 }
 
+type serverLogWriter struct {
+	server nixbuildpb.BuildService_BuildServer
+}
+
+func (s *serverLogWriter) Write(b []byte) (ln int, err error) {
+	err = s.server.Send(&nixbuildpb.ServerPayload{
+		Log: [][]byte{b},
+	})
+	if err == nil {
+		ln = len(b)
+	}
+	return
+}
+
 func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildServer) (err error) {
 	defer func() {
 		err = errors.WithStack(err)
@@ -109,11 +123,11 @@ func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildSer
 	if err != nil {
 		return
 	}
-	fmt.Println("DIRECTORY", dir)
-	result, err := service.builder.BuildDirectory(dir, name)
+	result, err := service.builder.BuildDirectory(dir, name, &serverLogWriter{server: server})
 	if err != nil {
 		return
 	}
+
 	fmt.Println(result)
 	// server.Send(*nixbuildpb.ServerPayload)
 	return
@@ -235,6 +249,8 @@ func (b *Builder) startDockerServer() (err error) {
 			return
 		}
 	}
+
+	fmt.Println("starting build container")
 
 	cont := dc.NewContainer(EmblyBuildContainerName, EmblyBuildImageName)
 	cont.Cmd = []string{"build-server"}

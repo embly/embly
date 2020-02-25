@@ -17,7 +17,7 @@ import (
 	nixbuildpb "embly/pkg/nixbuild/pb"
 )
 
-	unc (b *Builder) checkForBuildServer() bool {
+func (b *Builder) checkForBuildServer() bool {
 	conn, err := grpc.Dial(
 		"localhost:9276",
 		grpc.WithInsecure(),
@@ -25,9 +25,11 @@ import (
 			MinConnectTimeout: time.Millisecond * 300,
 		}))
 	if err != nil {
+		fmt.Println(err)
 		return false
 	}
 	b.client = nixbuildpb.NewBuildServiceClient(conn)
+	fmt.Println(b.serverHealthy())
 	return b.serverHealthy() == nil
 }
 
@@ -150,7 +152,6 @@ func (b *Builder) startRemoteBuild(name string) (result string, err error) {
 				return
 			}
 			compFile.RequestedHash = hashRequest.Hash
-			fmt.Println("CLIENT: ", compFile)
 			if err = buildClient.Send(&nixbuildpb.ClientPayload{
 				File: compFile,
 			}); err != nil {
@@ -158,7 +159,8 @@ func (b *Builder) startRemoteBuild(name string) (result string, err error) {
 			}
 		}
 		for _, log := range pay.Log {
-			fmt.Print(log)
+			// prefixwriter?
+			os.Stdout.Write(log)
 		}
 
 		if len(pay.Files) > 0 {

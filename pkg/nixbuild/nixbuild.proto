@@ -16,7 +16,7 @@ message CompressedFile {
 message ServerPayload {
   repeated CompressedFile files = 1;
   repeated HashRequest hash_needed = 2;
-  repeated string log = 3;
+  repeated bytes log = 3;
 }
 
 message HashRequest {
@@ -37,9 +37,7 @@ message File {
   int64 size = 4;
   bytes hash = 5;
 }
-message HealthPayload {
-
-}
+message HealthPayload {}
 message HealthResponse {
   int32 code = 1;
   string msg = 2;
