@@ -95,6 +95,7 @@ func ReadCompressedFile(loc string) (compFile *nixbuildpb.CompressedFile, err er
 	compFile = &nixbuildpb.CompressedFile{
 		Body: b.Bytes(),
 		Path: loc,
+		Name: filepath.Base(loc),
 	}
 	return
 }
@@ -169,6 +170,7 @@ func (b *Builder) startRemoteBuild(name string) (result string, err error) {
 				return
 			}
 			for _, file := range pay.Files {
+				fmt.Printf("Writing output file %s to %s\n", file.Name, result)
 				if err = WriteCompressedFile(file, result); err != nil {
 					return
 				}

@@ -59,6 +59,8 @@ func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildSer
 	defer func() {
 		err = errors.WithStack(err)
 	}()
+	logWriter := &serverLogWriter{server: server}
+
 	payload, err := server.Recv()
 	if payload.Build == nil {
 		return errors.New("first payload must include build details")
@@ -123,14 +125,21 @@ func (service *BuildServiceServer) Build(server nixbuildpb.BuildService_BuildSer
 	if err != nil {
 		return
 	}
-	result, err := service.builder.BuildDirectory(dir, name, &serverLogWriter{server: server})
+	result, err := service.builder.BuildDirectory(dir, name, logWriter)
 	if err != nil {
 		return
 	}
-
-	fmt.Println(result)
-	// server.Send(*nixbuildpb.ServerPayload)
-	return
+	_, _ = logWriter.Write([]byte(fmt.Sprintln(result)))
+	toSend := &nixbuildpb.ServerPayload{}
+	for _, ext := range []string{"out", "wasm"} {
+		var compFile *nixbuildpb.CompressedFile
+		compFile, err = ReadCompressedFile(filepath.Join(result, name+"."+ext))
+		if err != nil {
+			return
+		}
+		toSend.Files = append(toSend.Files, compFile)
+	}
+	return server.Send(toSend)
 }
 
 func (b *Builder) constructNetworkedBuild(loc string, fileMap map[string]*nixbuildpb.File) (buildDir string, err error) {

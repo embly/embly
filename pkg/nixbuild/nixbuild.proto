@@ -45,6 +45,5 @@ message HealthResponse {
 
 service BuildService {
   rpc Build(stream ClientPayload) returns (stream ServerPayload);
-
   rpc Health(HealthPayload) returns (HealthResponse);
 }

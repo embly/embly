@@ -28,8 +28,6 @@ type Builder struct {
 	emblyDir string
 	project  *filesystem.Project
 
-	cfg *config.Config
-
 	server *grpc.Server
 	client nixbuildpb.BuildServiceClient
 
@@ -53,12 +51,23 @@ func NewClientBuilder(ui cli.Ui) (b *Builder, err error) {
 		return
 	}
 
-	_ = NixCommandExists()
+	nixExists := NixCommandExists()
 	// check for linux...
 	// maybe with the nix command?
-	b.useLocalNix = false // TODO
+	if nixExists {
+		var resp string
+		resp, err = b.ui.Ask("Would you like to use nix to build?")
+		if err != nil {
+			return
+		}
+		if strings.Contains(resp, "y") {
+			b.useLocalNix = true
+			return
+		}
+	}
 
-	resp, err := b.ui.Ask("Would you like to start a build server?")
+	var resp string
+	resp, err = b.ui.Ask("Would you like to start a build server?")
 	if err != nil {
 		return
 	}
